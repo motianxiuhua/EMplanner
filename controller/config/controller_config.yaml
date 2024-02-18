@@ -1,0 +1,13 @@
+#横向控制参数
+#LQR_dynamics Q R矩阵参数
+Q_ed: 20.0
+Q_ed_dot: 1.0
+Q_ephi: 10.0
+Q_ephi_dot: 1.0
+R_value: 40.0
+
+#纵向控制PID
+kp: 0.5
+ki: 0.02
+kd: 0.05
+
