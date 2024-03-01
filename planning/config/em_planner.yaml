@@ -3,9 +3,9 @@ planning_time: 8
 
 #########路径规划相关##############
 #DP Path cost
-dp_sample_l: 1.0 # dp采样横向距离间隔
-dp_sample_s: 5.0 # dp采样纵向距离间隔
-dp_sample_rows: 5 # dp采样行数（横向）
+dp_sample_l: 1 # dp采样横向距离间隔
+dp_sample_s: 10.0 # dp采样纵向距离间隔
+dp_sample_rows: 9 # dp采样行数（横向）
 dp_sample_cols: 5  # dp采样列数（纵向）
 
 dp_interp_ds: 1 # dp插值间隔
@@ -17,14 +17,14 @@ dp_cost_dddl: 1.0
 dp_cost_ref: 50.0
 
 #QP Path cost
-qp_cost_l: 15.0
+qp_cost_l: 5.0
 qp_cost_dl: 150.0
 qp_cost_ddl: 10.0
 qp_cost_dddl: 1.0
-qp_cost_centre: 15.0
-qp_cost_end_l: 15.0
-qp_cost_end_dl: 15.0
-qp_cost_end_ddl: 15.0
+qp_cost_centre: 60.0
+qp_cost_end_l: 10.0
+qp_cost_end_dl: 10.0
+qp_cost_end_ddl: 10.0
 
 qp_interp_ds: 0.1 # qp插值间隔
 
@@ -32,9 +32,9 @@ qp_interp_ds: 0.1 # qp插值间隔
 #DP Speed cost
 speed_dp_sample_s: 0.5 # 速度规划s采样间隔
 speed_dp_sample_t: 0.5
-speed_dp_sample_row: 60 
+speed_dp_sample_row: 60 # 路径规划的总长s要大于速度规划的，否则拼接轨迹时会出错  
 speed_dp_sample_col: 16
-max_lateral_accel: 0.2
+max_lateral_accel: 10
 
 ref_speed: 10
 speed_dp_cost_ref_speed: 100
@@ -44,6 +44,6 @@ speed_dp_cost_obs: 1
 #QP Speed cost
 speed_qp_cost_v_ref: 8
 speed_qp_cost_dds_dt: 5
-speed_qp_cost_jerk: 0
+speed_qp_cost_jerk: 1
 
 speed_qp_interp_dt: 0.01

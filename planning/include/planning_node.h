@@ -57,6 +57,8 @@ namespace planning
         void detected_object_visualization(const std::vector<ObstacleInfo> &obstacle);
         void history_trajectory_visualization(const std::vector<Trajectory> &history_trajectory);
         void plan_start_visualization(const TrajectoryPoint &plan_start);
+        void planning_visualization(const std::vector<ReferencePoint>& planning_path, const ros::Publisher &path_pub);
+
     private:
         LocalizationInfo localization_info; //记录carla ros bridge里程计的定位信息
         std::vector<MapPoint> routing_path_points; //记录carla ros bridge的全局路径信息
@@ -74,6 +76,6 @@ namespace planning
         ros::Publisher trajectory_pub;      // 发布最优轨迹，用于rviz可视化
         ros::Publisher history_paths_pub;   // 发布历史参考路径，用于rviz可视化
         ros::Publisher speed_marker_pub; // 发布目标速度，用于rviz可视化
-        ros::Publisher point_marker_pub; //
+        ros::Publisher point_marker_pub; // 规划起点可视化
     };
 }

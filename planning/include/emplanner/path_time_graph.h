@@ -69,9 +69,13 @@ public:
 
   const std::vector<SLPoint> dp_path_points() const; //动态规划路径点
   const std::vector<SLPoint> dp_path_points_dense() const; //动态规划加密路径点
+  const std::vector<ReferencePoint> dp_path_points_cartersian() const;
+  const std::vector<ReferencePoint> dp_path_points_dense_cartersian() const;
 
   const std::vector<SLPoint> qp_path_points() const; //动态规划路径点
   const std::vector<SLPoint> qp_path_points_dense() const; //动态规划加密路径点
+  const std::vector<ReferencePoint> qp_path_points_cartersian() const;
+  const std::vector<ReferencePoint> qp_path_points_dense_cartersian() const;
 
   //二次规划相关
   void GenerateConvexSpace(); //根据dp_path,输出l_minx,l_max

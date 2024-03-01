@@ -17,7 +17,8 @@ public:
   EMPlanner(const std::unordered_map<std::string, double> &conf);
   ~EMPlanner() = default;
 
-  void Plan(const TrajectoryPoint &planning_init_point, //规划起点
+ std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>>
+       Plan(const TrajectoryPoint &planning_init_point, //规划起点
             const ReferenceLine &reference_line,        //参考线
             const LocalizationInfo &localization,       //定位信息
             const std::vector<ObstacleInfo> &static_obstacles,  //障碍物信息
@@ -29,7 +30,8 @@ public:
   void CalPlaningStartPoint(const Trajectory &pre_traj,
                             const LocalizationInfo &local_info,
                             TrajectoryPoint *start_plan_point,
-                            Trajectory *stitch_traj);
+                            Trajectory *stitch_traj
+                            );
 
   void StitchTrajectory(const Trajectory &cur_traj,
                         const Trajectory &stitch_traj, Trajectory &final_traj);

@@ -75,8 +75,6 @@ namespace controller
    */
   Eigen::MatrixXd Controller::CalcDlqr(double vx, const Eigen::MatrixXd &Q, const Eigen::MatrixXd &R)
   {
-    if(vx < 1e-6)
-      vx = 1e-6; // 防止速度为0时相除出错
     // A矩阵
     /*
     A matrix (Gear Drive)
@@ -109,7 +107,7 @@ namespace controller
 
     /***********************************求解Riccati方程**************************************/
     int max_iteration = 200; // 设置最大迭代次数
-    int tolerance = 0.001;   // 迭代求解精度
+    double tolerance = 0.001;   // 迭代求解精度
 
     Eigen::Matrix4d P = Q;
     Eigen::Matrix4d P_next;
@@ -137,7 +135,7 @@ namespace controller
   void Controller::CreateLqrOffline(const Eigen::MatrixXd &Q, const Eigen::MatrixXd &R)
   {
     lqr_k_table.clear();
-    for (double vx = 0; vx <= 40.0; vx += 0.01)
+    for (double vx = 0.01; vx <= 40.0; vx += 0.01)
     {
       lqr_k_table.push_back(CalcDlqr(vx, Q, R));
     }
@@ -153,27 +151,47 @@ namespace controller
   {
     double ts = 0.02;//控制时间间隔
     double control_time = cur_pose.t + ts;
-    this->cur_pose = cur_pose;
-    for(int i = 0; i < local_waypoints.size() - 1; i++)
+    if (control_time <= local_waypoints[0].t)
     {
-      if(control_time > local_waypoints[i].t && control_time <= local_waypoints[i+1].t)
-      {
-        double k = (control_time - local_waypoints[i].t) / 
-                   (local_waypoints[i+1].t - local_waypoints[i].t); //斜率
-        desired_point.x = local_waypoints[i].x + 
-                          k * (local_waypoints[i+1].x - local_waypoints[i].x);
-        desired_point.y = local_waypoints[i].y +
-                          k * (local_waypoints[i+1].y - local_waypoints[i].y);
-        desired_point.heading = local_waypoints[i].heading +
-                                k * (local_waypoints[i+1].heading - local_waypoints[i].heading);
-        desired_point.v = local_waypoints[i].v +
-                          k * (local_waypoints[i+1].v - local_waypoints[i].v); 
-        desired_point.kappa = local_waypoints[i].kappa +
-                          k * (local_waypoints[i+1].kappa - local_waypoints[i].kappa);  
-        desired_point.a = local_waypoints[i].a +
-                          k * (local_waypoints[i+1].a - local_waypoints[i].a);                                                                 
-      }
+      desired_point.x = local_waypoints[0].x; 
+      desired_point.y = local_waypoints[0].y; 
+      desired_point.heading = local_waypoints[0].heading;
+      desired_point.v = local_waypoints[0].v; 
+      desired_point.kappa = local_waypoints[0].kappa;  
+      desired_point.a = local_waypoints[0].a;
     }
+    else
+    {
+      for(int i = 0; i < local_waypoints.size() - 1; i++)
+      {
+        if(control_time > local_waypoints[i].t && control_time <= local_waypoints[i+1].t)
+        {
+          double k = (control_time - local_waypoints[i].t) / 
+                    (local_waypoints[i+1].t - local_waypoints[i].t); //斜率
+          desired_point.x = local_waypoints[i].x + 
+                            k * (local_waypoints[i+1].x - local_waypoints[i].x);
+          desired_point.y = local_waypoints[i].y +
+                            k * (local_waypoints[i+1].y - local_waypoints[i].y);
+          desired_point.heading = local_waypoints[i].heading +
+                                  k * (local_waypoints[i+1].heading - local_waypoints[i].heading);
+          desired_point.v = local_waypoints[i].v +
+                            k * (local_waypoints[i+1].v - local_waypoints[i].v); 
+          desired_point.kappa = local_waypoints[i].kappa +
+                            k * (local_waypoints[i+1].kappa - local_waypoints[i].kappa);  
+          desired_point.a = local_waypoints[i].a +
+                            k * (local_waypoints[i+1].a - local_waypoints[i].a);                                                                 
+        }
+      }
+    } 
+    real_cur_pose.x = cur_pose.x + cur_pose.vx * ts * cos(cur_pose.heading) 
+                                 - cur_pose.vy * ts * sin(cur_pose.heading);
+    real_cur_pose.y = cur_pose.y + cur_pose.vx * ts * sin(cur_pose.heading) 
+                                 + cur_pose.vy * ts * cos(cur_pose.heading);
+    real_cur_pose.heading = cur_pose.heading; 
+    real_cur_pose.vx = cur_pose.vx;
+    real_cur_pose.vy = cur_pose.vy;  
+    real_cur_pose.v = cur_pose.v;
+    real_cur_pose.yaw_rate = cur_pose.yaw_rate;                      
   }
 
   Eigen::Matrix<double, 4, 1> Controller::CalStateError()
@@ -190,7 +208,7 @@ namespace controller
 
     // 计算e_d
     Eigen::Matrix<double, 2, 1> d_err;
-    d_err << cur_pose.x - desired_point.x, cur_pose.y - desired_point.y;
+    d_err << real_cur_pose.x - desired_point.x, real_cur_pose.y - desired_point.y;
     double e_d = nor.transpose() * d_err;
 
     // 计算投影点的角度
@@ -199,17 +217,18 @@ namespace controller
                               desired_point.kappa * e_s;
 
     // 计算e_d_dot
-    double e_d_dot = cur_pose.vy * cos(cur_pose.heading - projection_theta) +
-                     cur_pose.vx * sin(cur_pose.heading - projection_theta);
+    double e_d_dot = real_cur_pose.vy * cos(real_cur_pose.heading - projection_theta) +
+                     real_cur_pose.vx * sin(real_cur_pose.heading - projection_theta);
 
     // 计算e_phi,消除角度的多值性(phi+2π与phi相同)
-    double e_phi = sin(cur_pose.heading - projection_theta);
+    double e_phi = sin(real_cur_pose.heading - projection_theta);
 
     // 计算e_phi_dot
-    double s_dot = (cur_pose.vx * cos(cur_pose.heading - projection_theta) -
-                    cur_pose.vy * sin(cur_pose.heading - projection_theta)) /
-                   (1 - desired_point.kappa * e_d);
-    double phi_dot = cur_pose.vx * desired_point.heading;
+    double s_dot = (real_cur_pose.vx * cos(real_cur_pose.heading - projection_theta) -
+                    real_cur_pose.vy * sin(real_cur_pose.heading - projection_theta)) /
+                   (1.0 - desired_point.kappa * e_d);
+    double phi_dot = real_cur_pose.vx * desired_point.kappa;
+    // double phi_dot = real_cur_pose.yaw_rate;
     double e_phi_dot = phi_dot - s_dot * desired_point.kappa;
 
     err << e_d,
@@ -225,8 +244,8 @@ namespace controller
     // 不足转向系数
     double kv = lr * mass / (cf * L) - lf * mass / (cr * L);
 
-    double forward_angle = L * desired_point.kappa - kv * cur_pose.vx * cur_pose.vx * desired_point.kappa -
-                           k3 * (lr * desired_point.kappa + lf * mass * cur_pose.vx * cur_pose.vx * desired_point.kappa / (lr * cr));
+    double forward_angle = L * desired_point.kappa - kv * real_cur_pose.vx * real_cur_pose.vx * desired_point.kappa -
+                           k3 * (lr * desired_point.kappa + lf * mass * real_cur_pose.vx * real_cur_pose.vx * desired_point.kappa / (lr * cr));
 
     // double forward_angle = desired_point.kappa * (lf + lr - lr * k3 -
     //                               (mass * pow(cur_pose.vx, 2) / (lf + lr)) * (lr / cf + lf * k3 / cr - lf / cr));
@@ -240,14 +259,15 @@ namespace controller
     Eigen::Matrix<double, 4, 1> err = CalStateError();
 
     // 查表获取LQR k值
-    if (cur_pose.vx < 1e-6)
+    Eigen::Matrix<double, 1, 4> K_correspond_vx;
+    if (real_cur_pose.vx < 0.01)
     {
-      steering = 0;
+      K_correspond_vx << 0,0,0,0;
     }
     else
     {
-      int index = static_cast<int>(cur_pose.vx / 0.01); //除以的系数取决于LQR K表制作时vx的递增值 
-      Eigen::Matrix<double, 1, 4> K_correspond_vx = lqr_k_table[index];
+      int index = static_cast<int>(real_cur_pose.vx / 0.01) - 1; //除以的系数取决于LQR K表制作时vx的递增值 
+      K_correspond_vx = lqr_k_table[index];
       // 计算前馈转角
       double forward_angle = CalForwardAngle(K_correspond_vx);
       NormalizeAngle(forward_angle);
@@ -258,13 +278,14 @@ namespace controller
       steering = max_degree;
     else if (steering <= -max_degree)
       steering = -max_degree;
-    commands[1] = steering;
+    // 定位的信息因为经过了ros ridge已经转换过了，不需要二次转换
+    commands[1] = -steering;//carla是左手坐标系，y轴是反的
   }
 
   void Controller::LongitudinalControl()
   {
     double ts = 0.02;//控制时间间隔
-    double v_error = desired_point.v - cur_pose.v;
+    double v_error = desired_point.v - real_cur_pose.v;
     sum_pid_error += v_error * ts;
     double k_ = this->kp * v_error;
     double integral_ = this->ki * sum_pid_error;
@@ -274,7 +295,6 @@ namespace controller
 
     previous["v_error"] = v_error;
     previous["throttle"] = throttle;
-    previous["v_error"] = v_error;
     if(throttle < 0)
     {
       commands[0] = 0;
@@ -290,7 +310,7 @@ namespace controller
   std::vector<double> Controller::get_command()
   {
     std::vector<double> cmd(3);
-    if(desired_point.v < 0.01)
+    if(desired_point.v < 0.001)
     {
       cmd[0] = 0;
       cmd[1] = 0;

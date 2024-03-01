@@ -32,8 +32,8 @@ namespace controller
     n.param<double>("R_value", R_value, 35.0);
 
     // setup subscriber
-    cur_pose_sub = n.subscribe("/carla/" + role_name + "/odometry", 10, &ControllerNode::callbackCarlaOdom, this);
-    local_path_sub = n.subscribe("/planning/local_waypoint", 10, &ControllerNode::callbackLocalPath, this);
+    cur_pose_sub = n.subscribe("/carla/" + role_name + "/odometry", 1, &ControllerNode::callbackCarlaOdom, this);
+    local_path_sub = n.subscribe("/planning/local_waypoint", 1, &ControllerNode::callbackLocalPath, this);
 
     // setup publishers
     path_pub = n.advertise<nav_msgs::Path>("/trajectory", 10);
@@ -98,6 +98,7 @@ namespace controller
       control_cmd.brake = cmd[2];
       control_cmd.hand_brake = false;
       control_cmd.reverse = false;
+      // control_cmd.gear = 1;
       control_cmd_pub.publish(control_cmd);
 
       ros::spinOnce();
@@ -131,6 +132,7 @@ namespace controller
     cur_pose.vy = msg->twist.twist.linear.y;
     cur_pose.v = std::sqrt(cur_pose.vx * cur_pose.vx + cur_pose.vy * cur_pose.vy);
 
+    cur_pose.yaw_rate = msg->twist.twist.angular.z;
     cur_pose.t = msg->header.stamp.toSec();
 
     // 将Odometry转换为Path，发布车辆行驶路径

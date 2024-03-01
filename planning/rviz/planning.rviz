@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Marker1/Namespaces1
+        - /Marker3
       Splitter Ratio: 0.5
     Tree Height: 532
   - Class: rviz/Selection
@@ -128,12 +129,15 @@ Visualization Manager:
       Visibility:
         "": true
         CarlaObjects: true
+        DPPath: true
         FinalPath: true
         GlobalPath: true
         Grid: true
         HistoryPath: true
         Marker: true
         Path: true
+        PlanningPath: true
+        QPPath: true
         SamplePaths: true
         Speed: true
         TF: true
@@ -144,7 +148,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 0; 0; 0
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -163,7 +167,7 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /planning/final_path
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 0.5
       Buffer Length: 1
       Class: rviz/Path
@@ -258,7 +262,7 @@ Visualization Manager:
       Marker Topic: /speed_marker_text
       Name: Marker
       Namespaces:
-        planning/speed_marker: true
+        {}
       Queue Size: 100
       Value: true
     - Class: jsk_rviz_plugin/PieChart
@@ -297,8 +301,104 @@ Visualization Manager:
       Marker Topic: /plan_start_marker
       Name: Marker
       Namespaces:
-        controller/plan_start_marker: true
+        {}
       Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 92; 53; 102
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.4000000059604645
+      Name: PlanningPath
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /planning/planning_path
+      Unreliable: false
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 32; 74; 135
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.4000000059604645
+      Name: DPPath
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /planning/dp_path
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 60; 243; 247
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.4000000059604645
+      Name: QPPath
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /planning/qp_path
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: QP
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /planning/qp
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -327,7 +427,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -1.8649615049362183
+      Angle: -1.684962272644043
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -337,10 +437,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 18.987010955810547
+      Scale: 8.389960289001465
       Target Frame: <Fixed Frame>
-      X: 231.93939208984375
-      Y: -104.8448257446289
+      X: 224.54115295410156
+      Y: -96.81230926513672
     Saved: ~
 Window Geometry:
   Camera:

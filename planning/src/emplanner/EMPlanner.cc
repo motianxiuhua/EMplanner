@@ -3,7 +3,8 @@
 
 EMPlanner::EMPlanner(const std::unordered_map<std::string, double> &conf) : config_(conf) {}
 
-void EMPlanner::Plan(const TrajectoryPoint &planning_init_point,
+std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>>
+     EMPlanner::Plan(const TrajectoryPoint &planning_init_point,
                      const ReferenceLine &reference_line,
                      const LocalizationInfo &localization_info,
                      const std::vector<ObstacleInfo> &static_obstacles,
@@ -40,6 +41,11 @@ void EMPlanner::Plan(const TrajectoryPoint &planning_init_point,
   st_graph_->PathAndSpeedMerge(planning_init_point.t);
   *trajectory = st_graph_->trajectory();
   // xy_virtual_obstacles = st_graph_->xy_virtual_obstacles();
+
+  std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>> planner;
+  planner.first = std::move(sl_graph_);
+  planner.second = std::move(st_graph_);
+  return planner;
 }
 
 /*
@@ -57,11 +63,13 @@ x,y,heading,kappa,vx,vy,ax,ay(vx,vy,ax,ay)是世界坐标系的
 void EMPlanner::CalPlaningStartPoint(const Trajectory &pre_traj,
                                      const LocalizationInfo &local_info,
                                      TrajectoryPoint *plan_start_point,
-                                     Trajectory *stitch_traj) {
+                                     Trajectory *stitch_traj
+                                     ) {
   double x_cur = local_info.x;
   double y_cur = local_info.y;
   double heading_cur = local_info.heading;
   double kappa_cur = 0;
+  double dt = 0.1; //时间间隔为0.1s一个点
   //车身坐标系转换为世界坐标系
   double vx_cur =
       local_info.vx * cos(heading_cur) - local_info.vy * sin(heading_cur);
@@ -79,14 +87,14 @@ void EMPlanner::CalPlaningStartPoint(const Trajectory &pre_traj,
     plan_start_point->x = x_cur;
     plan_start_point->y = y_cur;
     plan_start_point->heading = heading_cur;
-    plan_start_point->kappa = kappa_cur;
-    plan_start_point->v = local_info.v;
-    plan_start_point->vx = vx_cur;
-    plan_start_point->vy = vy_cur;
-    plan_start_point->a = local_info.a;
-    plan_start_point->ax = ax_cur;
-    plan_start_point->ay = ay_cur;
-    plan_start_point->t = cur_time;
+    plan_start_point->kappa = 0;
+    plan_start_point->v = 0;
+    plan_start_point->vx = 0;
+    plan_start_point->vy = 0;
+    plan_start_point->a = 0;
+    plan_start_point->ax = 0;
+    plan_start_point->ay = 0;
+    plan_start_point->t = cur_time + dt;
 
   } else {
     auto pre_traj_points = pre_traj.trajectory_points();
@@ -116,10 +124,11 @@ void EMPlanner::CalPlaningStartPoint(const Trajectory &pre_traj,
     //%横向误差
     double lat_err = abs(d_err.first * nor.first + d_err.second * nor.second);
     //%纵向误差大于2.5 横向误差大于0.5 认为控制没跟上
-    double dt = 0.1; //时间间隔为0.1s一个点
-    if ((lon_err > 2.5) || (lat_err > 0.5)) {
+    
+    if ((lon_err > 2.0) || (lat_err > 0.5)) {
       // %此分支处理控制未跟上的情况，规划起点通过运动学递推，cur_time+0.1(下一时刻的车辆位置)
       //定位模块传递的速度是以车身为坐标系的，轨迹传递的速度是以世界为坐标系
+     
       plan_start_point->x = x_cur + vx_cur * dt + 0.5 * ax_cur * dt * dt;
       plan_start_point->y = y_cur + vy_cur * dt + 0.5 * ay_cur * dt * dt;
       plan_start_point->vx = vx_cur + ax_cur * dt;
@@ -130,6 +139,8 @@ void EMPlanner::CalPlaningStartPoint(const Trajectory &pre_traj,
       plan_start_point->ay = ay_cur;
       plan_start_point->kappa = kappa_cur;
       plan_start_point->t = cur_time + dt;
+      
+     
     } else {
       //找到cur+dt对应的轨迹点
       for (int i = 0; i < pre_traj_points.size() - 1; i++) {
@@ -185,9 +196,8 @@ void EMPlanner::CalPlaningStartPoint(const Trajectory &pre_traj,
        %如果本周期计算的轨迹包含规划起点，那么stitch_trajectory就不可以包含规划起点。
        %我们选择规划包含起点，拼接不包含起点的做法
       */
-      pre_index_desire--;
       std::vector<TrajectoryPoint>::const_iterator it_start;
-      if (pre_index_desire >= 20) {
+      if (pre_index_desire >= 19) {
         it_start = pre_traj_points.begin() + pre_index_desire - 19;
       } else {
         it_start = pre_traj_points.begin();

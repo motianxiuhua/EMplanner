@@ -82,11 +82,11 @@ bool ReferenceLineSmoother::DiscretePointsSmooth(
 
   A3.setIdentity();
 
-  H = 2 * (config_["weight_smooth"] * A1.transpose() * A1 +
+  H = 2.0 * (config_["weight_smooth"] * A1.transpose() * A1 +
            config_["weight_path_length"] * A2.transpose() * A2 +
            config_["weight_ref_deviation"] * A3);
 
-  f = -2 * config_["weight_ref_deviation"] * f;
+  f = -2.0 * config_["weight_ref_deviation"] * f;
 
   OsqpEigen::Solver solver;
   solver.settings()->setWarmStart(true);

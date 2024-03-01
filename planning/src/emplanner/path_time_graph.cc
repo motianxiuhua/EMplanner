@@ -79,7 +79,8 @@ void PathTimeGraph::SetStartPointSl(TrajectoryPoint plan_start_point) {
   Cartesian2Frenet(reference_line_, sl_reference_line_, start_point_vec,
                    start_match_points, start_project_points, points_fcs);
   sl_plan_start_ = points_fcs.front();
-
+  if (sl_plan_start_.s <= 0 && sl_plan_start_.ddl_ds > 5)
+    sl_plan_start_.ddl_ds = 0;
 }
 
 void PathTimeGraph::SetStaticObstaclesSl() {
@@ -177,12 +178,12 @@ void PathTimeGraph::Cartesian2Frenet(
       points_fcs[i].s =
           sl_reference_line[(match_points[i].index)].s +
           sqrt(vector_porj2mactch.first * vector_porj2mactch.first +
-               vector_porj2mactch.second + vector_porj2mactch.second);
+               vector_porj2mactch.second * vector_porj2mactch.second);
     } else {
       points_fcs[i].s =
           sl_reference_line[(match_points[i].index)].s -
           sqrt(vector_porj2mactch.first * vector_porj2mactch.first +
-               vector_porj2mactch.second + vector_porj2mactch.second);
+               vector_porj2mactch.second * vector_porj2mactch.second);
     }
 
     // 2.求l
@@ -206,7 +207,7 @@ void PathTimeGraph::Cartesian2Frenet(
         vector_vh.first * vector_nr.first + vector_vh.second * vector_nr.second;
     points_fcs[i].ds_dt = (vector_vh.first * vector_tr.first +
                            vector_vh.second * vector_tr.second) /
-                          (1 - project_points[i].kappa * points_fcs[i].l);
+                          (1.0 - project_points[i].kappa * points_fcs[i].l);
     if (abs(points_fcs[i].ds_dt) < 1e-6)
       points_fcs[i].dl_ds = 0;
     else
@@ -217,15 +218,15 @@ void PathTimeGraph::Cartesian2Frenet(
     points_fcs[i].ddl_dt = vector_ah.first * vector_nr.first +
                            vector_ah.second * vector_nr.second -
                            project_points[i].kappa *
-                               (1 - project_points[i].kappa * points_fcs[i].l) *
+                               (1.0 - project_points[i].kappa * points_fcs[i].l) *
                                         pow(points_fcs[i].ds_dt, 2);
     points_fcs[i].dds_dt =
-        (1 / (1 - project_points[i].kappa * points_fcs[i].l)) *
+        (1.0 / (1 - project_points[i].kappa * points_fcs[i].l)) *
         ((vector_ah.first * vector_tr.first +
           vector_ah.second * vector_tr.second) +
-         2 * project_points[i].kappa * points_fcs[i].dl_ds *
+         2.0 * project_points[i].kappa * points_fcs[i].dl_ds *
              pow(points_fcs[i].ds_dt, 2));
-    if (abs(points_fcs[i].ds_dt) < 10e-5) {
+    if (points_fcs[i].ds_dt < 1e-3) {
       points_fcs[i].ddl_ds = 0;
     } else {
       points_fcs[i].ddl_ds = (points_fcs[i].ddl_dt - points_fcs[i].dl_ds *
@@ -282,16 +283,16 @@ void PathTimeGraph::Frenet2Cartesian(
     double heading =
         project_point.heading +
         atan(points_fcs[i].dl_ds /
-             (1 - project_point.kappa * points_fcs[i].l));
+             (1.0 - project_point.kappa * points_fcs[i].l));
     //% 近似认为 kappa' == 0,frenet转cartesian公式，见第一章第三节评论区的链接
     double kappa = ((points_fcs[i].ddl_ds +
                      project_point.kappa * points_fcs[i].dl_ds *
                          tan(heading - project_point.heading)) *
                    pow(cos(heading - project_point.heading), 2) /
-                        (1 - project_point.kappa * points_fcs[i].l) +
+                        (1.0 - project_point.kappa * points_fcs[i].l) +
                     project_point.kappa) *
                    cos(heading - project_point.heading) /
-                   (1 - project_point.kappa * points_fcs[i].l);
+                   (1.0 - project_point.kappa * points_fcs[i].l);
     points_wcs[i].x = point(0);
     points_wcs[i].y = point(1);
     points_wcs[i].heading = heading;
@@ -378,14 +379,14 @@ double PathTimeGraph::CalcPathCost(SLPoint point_satrt, SLPoint point_end) {
                            qc[4] * pow(quintic_path_point.s, 4) +
                            qc[5] * pow(quintic_path_point.s, 5);
     quintic_path_point.dl_ds = qc[1] + 2 * qc[2] * quintic_path_point.s +
-                               3 * qc[3] * pow(quintic_path_point.s, 2) +
-                               4 * qc[4] * pow(quintic_path_point.s, 3) +
-                               5 * qc[5] * pow(quintic_path_point.s, 4);
-    quintic_path_point.ddl_ds = 2 * qc[2] + 6 * qc[3] * quintic_path_point.s +
-                                12 * qc[4] * pow(quintic_path_point.s, 2) +
-                                20 * qc[5] * pow(quintic_path_point.s, 3);
-    quintic_path_point.dddl_ds = 6 * qc[3] + 24 * qc[4] * quintic_path_point.s +
-                                 60 * qc[5] * pow(quintic_path_point.s, 2);
+                               3.0 * qc[3] * pow(quintic_path_point.s, 2) +
+                               4.0 * qc[4] * pow(quintic_path_point.s, 3) +
+                               5.0 * qc[5] * pow(quintic_path_point.s, 4);
+    quintic_path_point.ddl_ds = 2.0 * qc[2] + 6.0 * qc[3] * quintic_path_point.s +
+                                12.0 * qc[4] * pow(quintic_path_point.s, 2) +
+                                20.0 * qc[5] * pow(quintic_path_point.s, 3);
+    quintic_path_point.dddl_ds = 6.0 * qc[3] + 24.0 * qc[4] * quintic_path_point.s +
+                                 60.0 * qc[5] * pow(quintic_path_point.s, 2);
     //平滑代价
     cost_smooth = cost_smooth +
                   config_["dp_cost_dl"] * pow(quintic_path_point.dl_ds, 2) +
@@ -442,11 +443,11 @@ void PathTimeGraph::CalcQuinticCoeffient(
   double end_s5 = pow(point_e.s, 5);
 
   Eigen::MatrixXd A(6, 6);
-  A << 1, start_s, start_s2, start_s3, start_s4, start_s5, 0, 1, 2 * start_s,
-      3 * start_s2, 4 * start_s3, 5 * start_s4, 0, 0, 2, 6 * start_s,
-      12 * start_s2, 20 * start_s3, 1, end_s, end_s2, end_s3, end_s4, end_s5, 0,
-      1, 2 * end_s, 3 * end_s2, 4 * end_s3, 5 * end_s4, 0, 0, 2, 6 * end_s,
-      12 * end_s2, 20 * end_s3;
+  A << 1, start_s, start_s2, start_s3, start_s4, start_s5, 0, 1, 2.0 * start_s,
+      3.0 * start_s2, 4.0 * start_s3, 5.0 * start_s4, 0, 0, 2, 6.0 * start_s,
+      12.0 * start_s2, 20.0 * start_s3, 1, end_s, end_s2, end_s3, end_s4, end_s5, 0,
+      1, 2.0 * end_s, 3.0 * end_s2, 4.0 * end_s3, 5.0 * end_s4, 0, 0, 2, 6.0 * end_s,
+      12.0 * end_s2, 20.0 * end_s3;
   Eigen::VectorXd B(6);
   B << point_s.l, point_s.dl_ds, point_s.ddl_ds, point_e.l, point_e.dl_ds,
       point_e.ddl_ds;
@@ -492,7 +493,7 @@ void PathTimeGraph::DpPathInterpolation() {
   std::vector<SLPoint> dp_path_points_dense; // ds1，60个。向前60m
   
   int size = dp_path_points_.size();
-  int dense_size = dp_path_points_.back().s / ds + 1;
+  int dense_size = (dp_path_points_.back().s - dp_path_points_.front().s) / ds + 1;
   for (int i = 0; i < size - 1; i++) {
     if (dp_path_points_dense.size() < dense_size) {
       //对s进行采样,依次对每两点间隔ds进行采样
@@ -508,14 +509,14 @@ void PathTimeGraph::DpPathInterpolation() {
                                  qc[3] * pow(quintic_path_point.s, 3) +
                                  qc[4] * pow(quintic_path_point.s, 4) +
                                  qc[5] * pow(quintic_path_point.s, 5);
-          quintic_path_point.dl_ds = qc[1] + 2 * qc[2] * quintic_path_point.s +
-                                     3 * qc[3] * pow(quintic_path_point.s, 2) +
-                                     4 * qc[4] * pow(quintic_path_point.s, 3) +
-                                     5 * qc[5] * pow(quintic_path_point.s, 4);
+          quintic_path_point.dl_ds = qc[1] + 2.0 * qc[2] * quintic_path_point.s +
+                                     3.0 * qc[3] * pow(quintic_path_point.s, 2) +
+                                     4.0 * qc[4] * pow(quintic_path_point.s, 3) +
+                                     5.0 * qc[5] * pow(quintic_path_point.s, 4);
           quintic_path_point.ddl_ds =
-              2 * qc[2] + 6 * qc[3] * quintic_path_point.s +
-              12 * qc[4] * pow(quintic_path_point.s, 2) +
-              20 * qc[5] * pow(quintic_path_point.s, 3);
+              2.0 * qc[2] + 6.0 * qc[3] * quintic_path_point.s +
+              12.0 * qc[4] * pow(quintic_path_point.s, 2) +
+              20.0 * qc[5] * pow(quintic_path_point.s, 3);
           dp_path_points_dense.push_back(quintic_path_point);
         } else
           break;
@@ -553,23 +554,25 @@ void PathTimeGraph::GenerateConvexSpace() {
         obs_l_max = std::max(box_point.l, obs_l_max);
     }
 
-    double start_index = FindNearIndex(dp_path_points_dense_, obs_s_min);
-    double end_index = FindNearIndex(dp_path_points_dense_, obs_s_max);
+    int start_index = FindNearIndex(dp_path_points_dense_, obs_s_min);
+    int end_index = FindNearIndex(dp_path_points_dense_, obs_s_max);
+
+    if (start_index == size - 1 && end_index == size - 1)
+      break;
 
     double path_center_l = (dp_path_points_dense_[start_index].l +
                             dp_path_points_dense_[end_index].l) / 2;
 
     if (path_center_l > sl_static_obstacles_[i].l) { //左侧绕行
-      for (int i = start_index; i <= end_index; i++) {
-        l_min(i) = std::max(l_min(i), obs_l_max);
+      for (int j = start_index; j <= end_index; j++) {
+        l_min(j) = std::max(l_min(j), obs_l_max);
       }
     } else { //右侧绕行
-      for (int i = start_index; i <= end_index; i++) {
-        l_max(i) = std::min(l_max(i), obs_l_min);
+      for (int j = start_index; j <= end_index; j++) {
+        l_max(j) = std::min(l_max(j), obs_l_min);
       }
     }
   }
-
   l_min_ = l_min;
   l_max_ = l_max;
 }
@@ -615,15 +618,9 @@ bool PathTimeGraph::PathQuadraticProgramming() {
 
   int n = dp_path_points_dense_.size();
   double ds = config_["dp_interp_ds"];
-  double d1 = 3; //汽车中心到后前边的距离
-  double d2 = 3;
+  double d1 = 1.5; //汽车中心到后前边的距离
+  double d2 = 1.5;
   double w = 1.67;
-
-  //输出初始化
-  Eigen::VectorXd qp_path_l = Eigen::VectorXd::Zero(n);
-  Eigen::VectorXd qp_path_dl = Eigen::VectorXd::Zero(n);
-  Eigen::VectorXd qp_path_ddl = Eigen::VectorXd::Zero(n);
-  Eigen::VectorXd qp_path_s = Eigen::VectorXd::Zero(n);
 
   // Hissen矩阵初始化
   Eigen::SparseMatrix<double> H(3 * n, 3 * n);
@@ -666,18 +663,10 @@ bool PathTimeGraph::PathQuadraticProgramming() {
     H_DDL.insert(3 * i + 2, 3 * i + 2) = 1;
   }
   H_CENTRE = H_L;
-  //生成H_DDDL
-  Eigen::SparseMatrix<double> H_dddl_sub(1, 6);
-  H_dddl_sub.insert(0, 2) = 1;
-  H_dddl_sub.insert(0, 5) = -1;
 
   for (int i = 0; i < n - 1; i++) {
     int row = i;
     int col = 3 * i;
-    //关于读操作，稀疏矩阵支持类似于密集矩阵相同的接口来访问块，列，行。
-    //但由于性能的原因，稀疏子矩阵的写操作非常受限。当前仅列（列）优先稀疏矩阵的连续列（或行）可写。此外，在编译时必须知道这些信息。
-    //  H_DDDL.block(row, col, 1, 6) = H_dddl_sub; //设置矩阵的块
-    // H_DDDL.middleRows(row, col) = H_dddl_sub;
     H_DDDL.insert(row, col + 2) = 1;
     H_DDDL.insert(row, col + 5) = -1;
   }
@@ -695,37 +684,32 @@ bool PathTimeGraph::PathQuadraticProgramming() {
       config_["qp_cost_end_l"] * (H_L_END.transpose() * H_L_END) +
       config_["qp_cost_end_dl"] * (H_DL_END.transpose() * H_DL_END) +
       config_["qp_cost_end_ddl"] * (H_DDL_END.transpose() * H_DDL_END);
-  H = 2 * H;
+  H = 2.0 * H;
 
   //--------------------------------------生成f
   auto centre_line =
       0.5 * (l_min_ + l_max_); //此时centre line 还是60个点,起点不优化
   for (int i = 0; i < n; i++) {
-    f(3 * i) = -2 * centre_line(i);
+    // f(3 * i) = -2.0 * centre_line(i);
+    f(3 * i) = -2.0 * dp_path_points_dense_[i].l;
     //避免centreline权重过大影响轨迹平顺性
     if (abs(f(3 * i)) > 0.3)
-      f(3 * i) = config_["qp_cost_centre"] * centre_line(i);
+      f(3 * i) = config_["qp_cost_centre"] * f(3 * i);
   }
   //% 期望的终点状态
   double end_l_desire = 0;
   double end_dl_desire = 0;
   double end_ddl_desire = 0;
-  f(3 * n - 3) = f(3 * n - 3) - 2 * end_l_desire * config_["qp_cost_end_l"];
-  f(3 * n - 2) = f(3 * n - 2) - 2 * end_dl_desire * config_["qp_cost_end_dl"];
-  f(3 * n - 1) = f(3 * n - 1) - 2 * end_ddl_desire * config_["qp_cost_end_ddl"];
+  f(3 * n - 3) = f(3 * n - 3) - 2.0 * end_l_desire * config_["qp_cost_end_l"];
+  f(3 * n - 2) = f(3 * n - 2) - 2.0 * end_dl_desire * config_["qp_cost_end_dl"];
+  f(3 * n - 1) = f(3 * n - 1) - 2.0 * end_ddl_desire * config_["qp_cost_end_ddl"];
 
   // Ax<=b
   //生成A 凸空间约束
-  Eigen::MatrixXd A_sub(8, 3);
-
-  A_sub << 1, d1, 0, 1, d1, 0, 1, -d2, 0, 1, -d2, 0, -1, -d1, 0, -1, -d1, 0, -1,
-      d2, 0, -1, d2, 0;
-
   double row_index_start = 0;
-  for (int i = 0; i < n - 1; i++) {
+  for (int i = 1; i < n; i++) {
     int row = 8 * i;
     int col = 3 * i;
-    //   A.block(row, col, 8, 3) = A_sub;
     A_merge.insert(row + 0, col + 0) = 1;
     A_merge.insert(row + 1, col + 0) = 1;
     A_merge.insert(row + 2, col + 0) = 1;
@@ -746,11 +730,11 @@ bool PathTimeGraph::PathQuadraticProgramming() {
   }
 
   //生成b
-  int front_index = ceil(d1 / ds);
-  int back_index = ceil(d2 / ds);
-  for (int i = 0; i < n; i++) {
+  int front_index = floor(d1 / ds);
+  int back_index = floor(d2 / ds);
+  for (int i = 1; i < n; i++) {
     int index1 = std::min(i + front_index, n - 1); //车头索引
-    int index2 = std::max(i - back_index, 0);      //车位索引
+    int index2 = std::max(i - back_index, 1);      //车位索引
     Eigen::VectorXd b_sub(8);
     b_sub << l_max_(index1) - w / 2, l_max_(index1) + w / 2,
         l_max_(index2) - w / 2, l_max_(index2) + w / 2, -l_min_(index1) + w / 2,
@@ -759,18 +743,10 @@ bool PathTimeGraph::PathQuadraticProgramming() {
     b.block(8 * i, 0, 8, 1) = b_sub;
   }
 
-  // Aeqx<=beq
-  //生成Aeq,连续性约束
-  Eigen::MatrixXd Aeq_sub(2, 6);
-  Aeq_sub << 1, ds, pow(ds, 2) / 3, -1, 0, pow(ds, 2) / 6, 0, 1, ds / 2, 0, -1,
-      ds / 2;
-  
-  //因为Eigen库将等式约束和不等式约束合在一起化成了 lb <= Ax <= ub的形式，所以只能将A_eq和A的行叠加在一起
   row_index_start = 8 * n;
   for (int i = 0; i < n - 1; i++) {
     int row = row_index_start + 2 * i;
     int col = 3 * i;
-    // Aeq.block(row, col, 2, 6) = A_sub;
     A_merge.insert(row, col) = 1;
     A_merge.insert(row, col + 1) = ds;
     A_merge.insert(row, col + 2) = pow(ds, 2) / 3;
@@ -799,42 +775,17 @@ bool PathTimeGraph::PathQuadraticProgramming() {
 
   for (int i = 1; i < n; i++) {
     lb(3 * i + 1) = -2;
-    lb(3 * i + 2) = -0.1;
+    lb(3 * i + 2) = -0.2;
     ub(3 * i + 1) = 2;
-    ub(3 * i + 2) = 0.1;
+    ub(3 * i + 2) = 0.2;
   }
-
-  //汇总约束
-  /*
-                 -inf< A*x   <= b
-  %              -inf< Aeq*x = beq
-  %               lb <=  x   <= ub;
-
-  A            b
-  Aeq  * x =   beq
-  1            ub
-
-
-  Eigen::MatrixXd A_merge(8 * n + 2 * n - 2 + 3 * n, 3 * n);
-  Eigen::MatrixXd lb_merge(8 * n + 2 * n - 2 + 3 * n, 1);
-  Eigen::MatrixXd ub_merge(8 * n + 2 * n - 2 + 3 * n, 1);*/
-
-  // A_merge.topRows(8 * n) = A;
-  // A_merge.middleRows(8 * n + 1, 8 * n + 2 * n - 2) = Aeq;
-  // A_merge.bottomRows(8 * n + 2 * n - 2) = A_lu;
-
-  // A_merge_tp.leftCols(8 * n) = A.transpose();
-  // // A_merge_tp.middleRows(8 * n + 1, 8 * n + 2 * n - 2) = Aeq.transpose();
-  // A_merge_tp.rightCols(8 * n + 2 * n - 2 + 1) = A_lu.transpose();
-  // A_merge = A_merge_tp.transpose();
 
   ub_merge.block(0, 0, 8 * n, 1) = b;
   ub_merge.block(8 * n, 0, 2 * n - 2, 1) = beq;
   ub_merge.block(8 * n + 2 * n - 2, 0, 3 * n, 1) = ub;
 
   lb_merge.block(0, 0, 8 * n, 1) = Eigen::MatrixXd::Ones(8 * n, 1) * (-DBL_MAX);
-  lb_merge.block(8 * n, 0, 2 * n - 2, 1) =
-      Eigen::MatrixXd::Ones(2 * n - 2, 1) * (-DBL_MAX);
+  lb_merge.block(8 * n, 0, 2 * n - 2, 1) = beq;
   lb_merge.block(8 * n + 2 * n - 2, 0, 3 * n, 1) = lb;
 
   //-----------------------------------------
@@ -871,15 +822,14 @@ void PathTimeGraph::QpPathInterpolation() {
   double ds = config_["qp_interp_ds"];
   int num = (qp_path_points_.back().s - qp_path_points_.front().s) / ds + 1;
   qp_path_points_dense.resize(num);
-  qp_path_points_dense[0] = sl_plan_start_;
 
   int n_init = qp_path_points_.size();
-  int index = 0;
+  int index = 1;
   double s = 0;
-  for (int i = 1; i < num; i++) {
+  for (int i = 0; i < num; i++) {
     s = qp_path_points_.front().s + i * ds;
     qp_path_points_dense[i].s = s;
-    while (s >= qp_path_points_[index].s) {
+    while (s > qp_path_points_[index].s) {
       index++;
       if (index == n_init)
         break;
@@ -894,11 +844,11 @@ void PathTimeGraph::QpPathInterpolation() {
     //分段加加速度优化，实际上公式就是qp规划阶段的假设满足三阶导数恒为常数
      qp_path_points_dense[i].l =
         qp_path_points_[pre].l + qp_path_points_[pre].dl_ds * delta_s +
-        (1 / 3) * qp_path_points_[pre].ddl_ds * pow(delta_s, 2) +
-        (1 / 6) * qp_path_points_[cur].ddl_ds * pow(delta_s, 3);
+        (1.0 / 3) * qp_path_points_[pre].ddl_ds * pow(delta_s, 2) +
+        (1.0 / 6) * qp_path_points_[cur].ddl_ds * pow(delta_s, 2);
     qp_path_points_dense[i].dl_ds = qp_path_points_[pre].dl_ds +
                                     0.5 * qp_path_points_[pre].ddl_ds * delta_s +
-                                    0.5 * qp_path_points_[cur].ddl_ds * pow(delta_s, 2);
+                                    0.5 * qp_path_points_[cur].ddl_ds * delta_s;
     qp_path_points_dense[i].ddl_ds =
         qp_path_points_[pre].ddl_ds +
         (qp_path_points_[cur].ddl_ds - qp_path_points_[pre].ddl_ds) * delta_s
@@ -908,8 +858,6 @@ void PathTimeGraph::QpPathInterpolation() {
     //在下一个循环中x
     // = x + ds
     //也未必大于 % qp_path_s(index)，这样就进入不了while循环，所以index
-    //要回退一位
-    index = index - 1;// TODO感觉这个没有必要，只要s>=path(index)就会index++，所以这边减掉的会再加回去
   }
 
   qp_path_points_dense_ = qp_path_points_dense;
@@ -936,16 +884,52 @@ const std::vector<SLPoint> PathTimeGraph::dp_path_points() const {
   return dp_path_points_;
 }; //动态规划路径点
 
+const std::vector<ReferencePoint> PathTimeGraph::dp_path_points_cartersian() const {
+  int size = dp_path_points_.size();
+  std::vector<ReferencePoint> dp_path_points;
+  dp_path_points.resize(size);
+  Frenet2Cartesian(reference_line_, sl_reference_line_, 
+                   dp_path_points_, dp_path_points);
+  return dp_path_points;
+}; //动态规划直角坐标系路径点
+
 const std::vector<SLPoint> PathTimeGraph::dp_path_points_dense() const {
   return dp_path_points_dense_;
 
 }; //动态规划加密路径点
 
+const std::vector<ReferencePoint> PathTimeGraph::dp_path_points_dense_cartersian() const {
+  int size = dp_path_points_dense_.size();
+  std::vector<ReferencePoint> dp_path_points_dense;
+  dp_path_points_dense.resize(size);
+  Frenet2Cartesian(reference_line_, sl_reference_line_, 
+                   dp_path_points_dense_, dp_path_points_dense);
+  return dp_path_points_dense;
+}; //动态规划直角坐标系路径点
+
 const std::vector<SLPoint> PathTimeGraph::qp_path_points() const {
   return qp_path_points_;
 }; //二次规划路径点
+
+const std::vector<ReferencePoint> PathTimeGraph::qp_path_points_cartersian() const {
+  int size = qp_path_points_.size();
+  std::vector<ReferencePoint> qp_path_points;
+  qp_path_points.resize(size);
+  Frenet2Cartesian(reference_line_, sl_reference_line_, 
+                   qp_path_points_, qp_path_points);
+  return qp_path_points;
+}; //动态规划直角坐标系路径点
 
 const std::vector<SLPoint> PathTimeGraph::qp_path_points_dense() const {
   return qp_path_points_dense_;
 
 }; //二次规划加密路径点
+
+const std::vector<ReferencePoint> PathTimeGraph::qp_path_points_dense_cartersian() const {
+  int size = qp_path_points_dense_.size();
+  std::vector<ReferencePoint> qp_path_points_dense;
+  qp_path_points_dense.resize(size);
+  Frenet2Cartesian(reference_line_, sl_reference_line_, 
+                   qp_path_points_dense_, qp_path_points_dense);
+  return qp_path_points_dense;
+}; //动态规划直角坐标系路径点

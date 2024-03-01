@@ -119,8 +119,8 @@ void SpeedTimeGraph::GenerateSTGraph() {
     // t_zero 为动态障碍物的l到0，所需要的时间
     double t_zero = -obs.l / obs.dl_dt; //时间等于路程除以速度
     //计算进出±2的时间
-    double t_boundary1 = 2 / obs.dl_dt + t_zero;
-    double t_boundary2 = -2 / obs.dl_dt + t_zero;
+    double t_boundary1 = 2.0 / obs.dl_dt + t_zero;
+    double t_boundary2 = -2.0 / obs.dl_dt + t_zero;
     double t_max = 0;
     double t_min = 0;
     if (t_boundary1 > t_boundary2) {
@@ -279,7 +279,7 @@ double SpeedTimeGraph::CalcDpCost(STPoint &point_s, STPoint &point_e) {
   else
     // % 超过车辆动力学限制，代价会增大很多倍
     cost_accel =
-        100000 * emplaner_conf_["speed_dp_cost_accel"] * pow(cur_s_dot2, 2);
+        100000.0 * emplaner_conf_["speed_dp_cost_accel"] * pow(cur_s_dot2, 2);
 
   double cost_obs = CalcObsCost(point_s, point_e);
 
@@ -359,8 +359,8 @@ void SpeedTimeGraph::GenerateCovexSpace() {
     //计算当前点的曲率，通过插值法
     int cur_index = 0;
     for (cur_index = 0; cur_index < path_end_index - 1; cur_index++) {
-      if (cur_s > sl_planning_path_[cur_index].s &&
-          cur_s <= sl_planning_path_[cur_index + 1].s)
+      if (cur_s >= sl_planning_path_[cur_index].s &&
+          cur_s < sl_planning_path_[cur_index + 1].s)
         break;
     }
     planning_path_points_ = planning_path_.reference_points();
@@ -489,8 +489,8 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
     A_dds_dt.insert(3 * i + 2, 3 * i + 2) = 1;
   }
 
-  Eigen::MatrixXd A_jerk_sub(6, 1);
-  A_jerk_sub << 0, 0, 1, 0, 0, -1;
+  // Eigen::MatrixXd A_jerk_sub(6, 1);
+  // A_jerk_sub << 0, 0, 1, 0, 0, -1;
 
   //??
   for (int i = 0; i < n - 1; i++) {
@@ -502,14 +502,14 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
   H = emplaner_conf_["speed_qp_cost_v_ref"] * (A_ref.transpose() * A_ref) +
       emplaner_conf_["speed_qp_cost_dds_dt"] * (A_dds_dt.transpose() * A_dds_dt) +
       emplaner_conf_["speed_qp_cost_jerk"] * (A_jerk.transpose() * A_jerk);
-  H = 2 * H;
+  H = 2.0 * H;
 
   //生成f
   for (int i = 0; i < n; i++) {
-    f(3 * i) =
-        -2 * emplaner_conf_["speed_qp_cost_v_ref"] * emplaner_conf_["ref_speed"];
+    f(3 * i + 1) =
+        -2.0 * emplaner_conf_["speed_qp_cost_v_ref"] * emplaner_conf_["ref_speed"];
   }
-  double index_start = 0;
+  int index_start = 0;
   // 不等式约束，生成A 不允许倒车 si+1-si>0
   for (int i = 0; i < n - 1; i++) {
     A_merge.insert(i, 3 * i) = 1;
@@ -521,23 +521,23 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
   //等式约束，生成Aeq,连续性约束。学习加加速度算法的原理
   double dt = emplaner_conf_["speed_dp_sample_t"];
 
-  Eigen::MatrixXd A_sub(6, 2);
-  A_sub << 1, 0, dt, 1, (1 / 3) * pow(dt, 2), (1 / 2) * dt, -1, 0, 0, -1,
-      (1 / 6) * pow(dt, 2), dt / 2;
+  // Eigen::MatrixXd A_sub(6, 2);
+  // A_sub << 1, 0, dt, 1, (1 / 3) * pow(dt, 2), (1 / 2) * dt, -1, 0, 0, -1,
+  //     (1 / 6) * pow(dt, 2), dt / 2;
   index_start = n - 1;
   for (int i = 0; i < n - 1; i++) {
     double row = index_start + i * 2;
     double col = i * 3;
     A_merge.insert(row, col) = 1;
     A_merge.insert(row, col + 1) = dt;
-    A_merge.insert(row, col + 2) = (1 / 3) * pow(dt, 2);
+    A_merge.insert(row, col + 2) = (1.0 / 3) * pow(dt, 2);
     A_merge.insert(row, col + 3) = -1;
     A_merge.insert(row, col + 4) = 0;
-    A_merge.insert(row, col + 5) = (1 / 6) * pow(dt, 2);
+    A_merge.insert(row, col + 5) = (1.0 / 6) * pow(dt, 2);
 
     A_merge.insert(row + 1, col) = 0;
     A_merge.insert(row + 1, col + 1) = 1;
-    A_merge.insert(row + 1, col + 2) = (1 / 2) * dt;
+    A_merge.insert(row + 1, col + 2) = (1.0 / 2) * dt;
     A_merge.insert(row + 1, col + 3) = 0;
     A_merge.insert(row + 1, col + 4) = -1;
     A_merge.insert(row + 1, col + 5) = dt / 2;
@@ -545,8 +545,8 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
 
   index_start = n - 1 + 2 * n - 2;
   for (int i = 0; i < n; i++) {
-    double row = index_start + 3 * i;
-    double col = 3 * i;
+    int row = index_start + 3 * i;
+    int col = 3 * i;
     A_merge.insert(row, col) = 1;
     A_merge.insert(row + 1, col + 1) = 1;
     A_merge.insert(row + 2, col + 2) = 1;
@@ -602,7 +602,14 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
   qp_speed_points_.resize(n);
   for (int i = 0; i < n; i++) {
     qp_speed_points_[i].s = qp_solution(3 * i);
+    if (qp_speed_points_[i].s < 0)
+    // 理论上s的最小值应该为0，不应该小于0，在约束里面也有
+    // 但可能因为我double的原因，这里计算出来的值是-1*e-6很接近0的值，但是会导致后面的拼接出问题
+      qp_speed_points_[i].s  = 0; 
     qp_speed_points_[i].ds_dt = qp_solution(3 * i + 1);
+    if (qp_speed_points_[i].ds_dt < 0)
+    // 不允许后退，理论上速度也不应该小于0
+      qp_speed_points_[i].ds_dt = 0;
     qp_speed_points_[i].dds_dt = qp_solution(3 * i + 2);
     qp_speed_points_[i].t = i * dt;
   }
@@ -633,10 +640,16 @@ void SpeedTimeGraph::SpeedQpInterpolation() //点的个数401
         break;
     }
     double dt_2pre = cur_t - qp_speed_points_[j].t;
+    // 下面的方式会导致有1的那两项转化为整数，因为类型转换取决于第一项
+    // 要么使用1.0要么除以6
+    // qp_speed_points_dense_[i].s =
+    //     qp_speed_points_[j].s + qp_speed_points_[j].ds_dt * dt_2pre +
+    //     (1 / 3) * qp_speed_points_[j].dds_dt * pow(dt_2pre, 2) +
+    //     (1 / 6) * qp_speed_points_[j + 1].dds_dt * pow(dt_2pre, 2);
     qp_speed_points_dense_[i].s =
         qp_speed_points_[j].s + qp_speed_points_[j].ds_dt * dt_2pre +
-        (1 / 3) * qp_speed_points_[j].dds_dt * pow(dt_2pre, 2) +
-        (1 / 6) * qp_speed_points_[j + 1].dds_dt * pow(dt_2pre, 2);
+        qp_speed_points_[j].dds_dt * pow(dt_2pre, 2) / 3 +
+        qp_speed_points_[j + 1].dds_dt * pow(dt_2pre, 2) / 6;
     qp_speed_points_dense_[i].ds_dt =
         qp_speed_points_[j].ds_dt + 0.5 * qp_speed_points_[j].dds_dt * dt_2pre + 
         0.5 * qp_speed_points_[j + 1].dds_dt * dt_2pre;
@@ -657,7 +670,7 @@ void SpeedTimeGraph::PathAndSpeedMerge(const double &plan_time) {
   int n = qp_speed_points_dense_.size();
   auto planning_path_points = planning_path_.reference_points();
   trajectory_points_.resize(n);
-  for (int i = 0; i < n - 1; i++) {
+  for (int i = 0; i < n; i++) {
     trajectory_points_[i].t = plan_time + qp_speed_points_dense_[i].t;
     trajectory_points_[i].v = qp_speed_points_dense_[i].ds_dt;
     trajectory_points_[i].a = qp_speed_points_dense_[i].dds_dt;
@@ -687,19 +700,6 @@ void SpeedTimeGraph::PathAndSpeedMerge(const double &plan_time) {
         planning_path_points[j].kappa +
         k * (planning_path_points[j + 1].kappa - planning_path_points[j].kappa);
   }
-
-  trajectory_points_[n - 1].x =
-      planning_path_points[planning_path_points.size() - 1].x;
-  trajectory_points_[n - 1].y =
-      planning_path_points[planning_path_points.size() - 1].y;
-  trajectory_points_[n - 1].heading =
-      planning_path_points[planning_path_points.size() - 1].heading;
-  trajectory_points_[n - 1].kappa =
-      planning_path_points[planning_path_points.size() - 1].kappa;
-  trajectory_points_[n - 1].v =
-      qp_speed_points_dense_[qp_speed_points_dense_.size() - 1].ds_dt;
-  trajectory_points_[n - 1].a =
-      qp_speed_points_dense_[qp_speed_points_dense_.size() - 1].dds_dt;
 
   trajectory_.set_trajectory_points(trajectory_points_);
 }

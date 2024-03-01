@@ -63,7 +63,7 @@ namespace controller
 
   private:
     std::unordered_map<std::string, double> previous;     // 用于临时存储一些上一循环周期的变量
-    TrajectoryPoint cur_pose;                                   // 车辆当前状态
+    TrajectoryPoint real_cur_pose;                                   // 车辆当前状态
     std::vector<double> commands;                         // throttle, steer, brake
     std::vector<Eigen::MatrixXd> lqr_k_table; // LQR离线求解后的k
     ControlPoint desired_point;

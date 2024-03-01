@@ -33,6 +33,7 @@ public:
   double v;  //速度
   double vx; //车身坐标系
   double vy;
+  double yaw_rate;
   double a; //加速度
   double ax;
   double ay;

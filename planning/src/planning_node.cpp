@@ -78,10 +78,10 @@ namespace planning
         n.param<double>("speed_qp_interp_dt", emplanner_params["speed_qp_interp_dt"], 0.1);
         
          // 订阅carla消息
-        location_subscriber = n.subscribe("/carla/" + role_name + "/odometry", 10, &PlanningNode::callbackCarlaOdom, this);
-        global_path_subscriber = n.subscribe("/carla/" + role_name + "/waypoints", 10, &PlanningNode::callbackGlobalPath, this);
-        imu_subscriber = n.subscribe("/carla/" + role_name + "/imu", 10, &PlanningNode::callbackIMU, this);
-        detected_objects_subscriber = n.subscribe("/carla/" + role_name + "/objects", 10, &PlanningNode::callbackDetectedObjects, this);
+        location_subscriber = n.subscribe("/carla/" + role_name + "/odometry", 1, &PlanningNode::callbackCarlaOdom, this);
+        global_path_subscriber = n.subscribe("/carla/" + role_name + "/waypoints", 1, &PlanningNode::callbackGlobalPath, this);
+        imu_subscriber = n.subscribe("/carla/" + role_name + "/imu", 1, &PlanningNode::callbackIMU, this);
+        detected_objects_subscriber = n.subscribe("/carla/" + role_name + "/objects", 1, &PlanningNode::callbackDetectedObjects, this);
 
         // //发送轨迹给控制
         local_waypoints_pub = n.advertise<local_waypoint_msgs::LocalWaypointArray>("/planning/local_waypoint", 10);
@@ -89,6 +89,7 @@ namespace planning
         history_paths_pub = n.advertise<nav_msgs::Path>("/planning/history_paths", 10);
         speed_marker_pub = n.advertise<visualization_msgs::Marker>("/speed_marker_text", 10);
         point_marker_pub = n.advertise<visualization_msgs::Marker>("/point_marker", 10);
+        
     }
 
     /**
@@ -102,9 +103,20 @@ namespace planning
         ReferenceLine reference_line;     //当前参考线
         ReferenceLine pre_reference_line; //上一周期参考线
 
+        Trajectory cur_trajectory; //当前轨迹
         Trajectory trajectory; //当前轨迹
         Trajectory pre_trajectory; //上一周期轨迹
         std::vector<Trajectory> history_trajectory; //历史轨迹
+
+        ros::NodeHandle nh("~"); // 句柄
+        ros::Publisher planning_path_pub = 
+            nh.advertise<nav_msgs::Path>("/planning/planning_path", 10); // 路径规划可视化
+        ros::Publisher dp_planning_path_pub = 
+            nh.advertise<nav_msgs::Path>("/planning/dp_path", 10); // 路径规划可视化
+        ros::Publisher qp_planning_pub = 
+            nh.advertise<nav_msgs::Path>("/planning/qp", 10); // 路径规划可视化
+        ros::Publisher qp_planning_path_pub = 
+            nh.advertise<nav_msgs::Path>("/planning/qp_path", 10); // 路径规划可视化
 
         while (ros::ok())
         {
@@ -128,13 +140,26 @@ namespace planning
                                                 &plan_start, &stitch_trajectory);
                 std::vector<ReferencePoint> xy_virtual_obstacles;
                 //接口和参数都对不上
+                std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>> planner = 
                 em_planner->Plan(plan_start, reference_line, localization_info,
                                 perception->static_obstacles(), perception->dynamic_obstacles(),
-                                &trajectory, xy_virtual_obstacles);
+                                &cur_trajectory, xy_virtual_obstacles);
                 // perception->UpdateVirtualObstacle(xy_virtual_obstacles);
+                em_planner->StitchTrajectory(cur_trajectory, stitch_trajectory, trajectory);
                 history_trajectory.push_back(trajectory);
-                //
+
+                //规划起点可视化
                 plan_start_visualization(plan_start);
+
+                //路径规划可视化
+                planning_visualization(planner.first->planning_path().reference_points(), planning_path_pub);
+
+                //动态规划
+                planning_visualization(planner.first->dp_path_points_dense_cartersian(), dp_planning_path_pub);
+
+                //二次规划
+                planning_visualization(planner.first->qp_path_points_cartersian(), qp_planning_pub);
+                planning_visualization(planner.first->qp_path_points_dense_cartersian(), qp_planning_path_pub);
 
                 //规划轨迹可视化
                 trajectory_visualization(trajectory.trajectory_points());
@@ -170,9 +195,8 @@ namespace planning
             local_waypoints_pub.publish(trajectory_msg_array);
             
             //1. 调用回调函数得到定位感知全局路径信息
-            
-            rate.sleep();
             ros::spinOnce();
+            rate.sleep();
         }
 
     }
@@ -312,8 +336,9 @@ namespace planning
 
 
     /**
-     * @brief rviz可视化函数
+     * @brief 
      * 
+     * @param trajectory 
      */
     void PlanningNode::trajectory_visualization(const std::vector<TrajectoryPoint> &trajectory){
         nav_msgs::Path best_path;
@@ -327,11 +352,35 @@ namespace planning
             geometry_msgs::Quaternion quat =
                 tf::createQuaternionMsgFromYaw(trajectory[i].heading);
             pose.pose.orientation = quat;
-            pose.header.stamp =  ros::Time().fromSec(trajectory[i].t);
+            // pose.header.stamp =  ros::Time().fromSec(trajectory[i].t);
             best_path.poses.push_back(pose);
         }
         trajectory_pub.publish(best_path);
     }
+
+    void PlanningNode::planning_visualization(const std::vector<ReferencePoint>& planning_path, const ros::Publisher &path_pub){
+        nav_msgs::Path best_path;
+        best_path.header.frame_id = "map";
+        for (int i = 0; i < planning_path.size(); i++)
+        {
+            geometry_msgs::PoseStamped pose;
+            pose.pose.position.x = planning_path[i].x;
+            pose.pose.position.y = planning_path[i].y;
+
+            geometry_msgs::Quaternion quat =
+                tf::createQuaternionMsgFromYaw(planning_path[i].heading);
+            pose.pose.orientation = quat;
+            // pose.header.stamp =  ros::Time().fromSec(trajectory[i].t);
+            best_path.poses.push_back(pose);
+        }
+        path_pub.publish(best_path);
+    }
+
+    /**
+     * @brief 
+     * 
+     * @param obstacle 
+     */
     void PlanningNode::detected_object_visualization(const std::vector<ObstacleInfo> &obstacle){
         int id_ = 0;
         for (auto &object : obstacle)
@@ -380,7 +429,7 @@ namespace planning
                 geometry_msgs::PoseStamped pose;
                 pose.pose.position.x = trajectory[i].x;
                 pose.pose.position.y = trajectory[i].y;
-                pose.header.stamp =  ros::Time().fromSec(trajectory[i].t);
+                // pose.header.stamp =  ros::Time().fromSec(trajectory[i].t);
                 geometry_msgs::Quaternion quat =
                     tf::createQuaternionMsgFromYaw(trajectory[i].heading);
                 pose.pose.orientation = quat;

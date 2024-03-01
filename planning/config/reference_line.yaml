@@ -3,7 +3,7 @@ weight_smooth: 70  #参考线平滑代价
 weight_path_length: 10  #参考线轨迹长度代价
 weight_ref_deviation: 20 #参考线偏移代价
 # 二次规划几何相似度约束
-x_lower_bound : -0.1
-x_upper_bound : 0.1
-y_lower_bound : -0.1
-y_upper_bound : 0.1
+x_lower_bound : -0.05
+x_upper_bound : 0.05
+y_lower_bound : -0.05
+y_upper_bound : 0.05
