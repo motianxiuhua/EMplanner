@@ -651,9 +651,9 @@ bool PathTimeGraph::PathQuadraticProgramming() {
   Eigen::VectorXd lb = Eigen::VectorXd::Ones(3 * n) * -DBL_MAX;
   Eigen::VectorXd ub = Eigen::VectorXd::Ones(3 * n) * DBL_MAX;
   //行优先只能进行列操作
-  Eigen::SparseMatrix<double> A_merge(8 * n + 2 * n - 2 + 3 * n, 3 * n);
-  Eigen::VectorXd lb_merge(8 * n + 2 * n - 2 + 3 * n);
-  Eigen::VectorXd ub_merge(8 * n + 2 * n - 2 + 3 * n);
+  Eigen::SparseMatrix<double> A_merge(2 * n - 2 + 3 * n, 3 * n);
+  Eigen::VectorXd lb_merge(2 * n - 2 + 3 * n);
+  Eigen::VectorXd ub_merge(2 * n - 2 + 3 * n);
   //---------------------------------------------H
   //生成H_L,H_DL,H_DDL,H_CENTRE
   // matlab矩阵索引从1开始，eigen矩阵索引从
@@ -707,43 +707,43 @@ bool PathTimeGraph::PathQuadraticProgramming() {
   // Ax<=b
   //生成A 凸空间约束
   double row_index_start = 0;
-  for (int i = 1; i < n; i++) {
-    int row = 8 * i;
-    int col = 3 * i;
-    A_merge.insert(row + 0, col + 0) = 1;
-    A_merge.insert(row + 1, col + 0) = 1;
-    A_merge.insert(row + 2, col + 0) = 1;
-    A_merge.insert(row + 3, col + 0) = 1;
-    A_merge.insert(row + 4, col + 0) = -1;
-    A_merge.insert(row + 5, col + 0) = -1;
-    A_merge.insert(row + 6, col + 0) = -1;
-    A_merge.insert(row + 7, col + 0) = -1;
+  // for (int i = 1; i < n; i++) {
+  //   int row = 8 * i;
+  //   int col = 3 * i;
+  //   A_merge.insert(row + 0, col + 0) = 1;
+  //   A_merge.insert(row + 1, col + 0) = 1;
+  //   A_merge.insert(row + 2, col + 0) = 1;
+  //   A_merge.insert(row + 3, col + 0) = 1;
+  //   A_merge.insert(row + 4, col + 0) = -1;
+  //   A_merge.insert(row + 5, col + 0) = -1;
+  //   A_merge.insert(row + 6, col + 0) = -1;
+  //   A_merge.insert(row + 7, col + 0) = -1;
 
-    A_merge.insert(row + 0, col + 1) = d1;
-    A_merge.insert(row + 1, col + 1) = d1;
-    A_merge.insert(row + 2, col + 1) = -d2;
-    A_merge.insert(row + 3, col + 1) = -d2;
-    A_merge.insert(row + 4, col + 1) = -d1;
-    A_merge.insert(row + 5, col + 1) = -d1;
-    A_merge.insert(row + 6, col + 1) = d2;
-    A_merge.insert(row + 7, col + 1) = d2;
-  }
+  //   A_merge.insert(row + 0, col + 1) = d1;
+  //   A_merge.insert(row + 1, col + 1) = d1;
+  //   A_merge.insert(row + 2, col + 1) = -d2;
+  //   A_merge.insert(row + 3, col + 1) = -d2;
+  //   A_merge.insert(row + 4, col + 1) = -d1;
+  //   A_merge.insert(row + 5, col + 1) = -d1;
+  //   A_merge.insert(row + 6, col + 1) = d2;
+  //   A_merge.insert(row + 7, col + 1) = d2;
+  // }
 
-  //生成b
-  int front_index = floor(d1 / ds);
-  int back_index = floor(d2 / ds);
-  for (int i = 1; i < n; i++) {
-    int index1 = std::min(i + front_index, n - 1); //车头索引
-    int index2 = std::max(i - back_index, 1);      //车位索引
-    Eigen::VectorXd b_sub(8);
-    b_sub << l_max_(index1) - w / 2, l_max_(index1) + w / 2,
-        l_max_(index2) - w / 2, l_max_(index2) + w / 2, -l_min_(index1) + w / 2,
-        -l_min_(index1) - w / 2, -l_min_(index2) + w / 2,
-        -l_min_(index2) - w / 2;
-    b.block(8 * i, 0, 8, 1) = b_sub;
-  }
+  // //生成b
+  // int front_index = floor(d1 / ds);
+  // int back_index = floor(d2 / ds);
+  // for (int i = 1; i < n; i++) {
+  //   int index1 = std::min(i + front_index, n - 1); //车头索引
+  //   int index2 = std::max(i - back_index, 1);      //车位索引
+  //   Eigen::VectorXd b_sub(8);
+  //   b_sub << l_max_(index1) - w / 2, l_max_(index1) + w / 2,
+  //       l_max_(index2) - w / 2, l_max_(index2) + w / 2, -l_min_(index1) + w / 2,
+  //       -l_min_(index1) - w / 2, -l_min_(index2) + w / 2,
+  //       -l_min_(index2) - w / 2;
+  //   b.block(8 * i, 0, 8, 1) = b_sub;
+  // }
 
-  row_index_start = 8 * n;
+  // row_index_start = 8 * n;
   for (int i = 0; i < n - 1; i++) {
     int row = row_index_start + 2 * i;
     int col = 3 * i;
@@ -760,7 +760,7 @@ bool PathTimeGraph::PathQuadraticProgramming() {
   }
 
   // 3n*3n单位矩阵，起点约束，dl，ddl约束
-  row_index_start = 8 * n + 2 * n - 2;
+  row_index_start = 2 * n - 2;
   for (int i = 0; i < 3 * n; i++) {
     A_merge.insert(row_index_start + i, i) = 1;
   }
@@ -774,19 +774,21 @@ bool PathTimeGraph::PathQuadraticProgramming() {
   ub(2) = lb(2);
 
   for (int i = 1; i < n; i++) {
+    lb(3 * i) = l_min_(i) + w / 2;
     lb(3 * i + 1) = -2;
     lb(3 * i + 2) = -0.2;
+    ub(3 * i) = l_max_(i) - w / 2;
     ub(3 * i + 1) = 2;
     ub(3 * i + 2) = 0.2;
   }
 
-  ub_merge.block(0, 0, 8 * n, 1) = b;
-  ub_merge.block(8 * n, 0, 2 * n - 2, 1) = beq;
-  ub_merge.block(8 * n + 2 * n - 2, 0, 3 * n, 1) = ub;
+  // ub_merge.block(0, 0, 8 * n, 1) = b;
+  ub_merge.block(0, 0, 2 * n - 2, 1) = beq;
+  ub_merge.block(2 * n - 2, 0, 3 * n, 1) = ub;
 
-  lb_merge.block(0, 0, 8 * n, 1) = Eigen::MatrixXd::Ones(8 * n, 1) * (-DBL_MAX);
-  lb_merge.block(8 * n, 0, 2 * n - 2, 1) = beq;
-  lb_merge.block(8 * n + 2 * n - 2, 0, 3 * n, 1) = lb;
+  // lb_merge.block(0, 0, 8 * n, 1) = Eigen::MatrixXd::Ones(8 * n, 1) * (-DBL_MAX);
+  lb_merge.block(0, 0, 2 * n - 2, 1) = beq;
+  lb_merge.block(2 * n - 2, 0, 3 * n, 1) = lb;
 
   //-----------------------------------------
   // osqp的调用---------------------------------------------------------------
@@ -794,7 +796,7 @@ bool PathTimeGraph::PathQuadraticProgramming() {
 
   solver.settings()->setWarmStart(true);
   solver.data()->setNumberOfVariables(3 * n); // A矩阵列数
-  solver.data()->setNumberOfConstraints(8 * n + 2 * n - 2 + 3 * n); // A矩阵行数
+  solver.data()->setNumberOfConstraints(2 * n - 2 + 3 * n); // A矩阵行数
   solver.data()->setHessianMatrix(H);
   solver.data()->setGradient(f);
   solver.data()->setLinearConstraintsMatrix(A_merge);

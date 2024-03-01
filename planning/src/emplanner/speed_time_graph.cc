@@ -555,7 +555,7 @@ bool SpeedTimeGraph::SpeedQuadraticProgramming() {
   // beq=0
 
   //凸空间约束 生成lb,ub
-  for (int i = 0; i < n; i++) {
+  for (int i = 1; i < n; i++) {
     lb(3 * i) = convex_s_lb_(i);
     lb(3 * i + 1) = convex_ds_dt_lb_(i);
     lb(3 * i + 2) = -6; //最小加速度

@@ -21,10 +21,10 @@ qp_cost_l: 5.0
 qp_cost_dl: 150.0
 qp_cost_ddl: 10.0
 qp_cost_dddl: 1.0
-qp_cost_centre: 60.0
-qp_cost_end_l: 10.0
-qp_cost_end_dl: 10.0
-qp_cost_end_ddl: 10.0
+qp_cost_centre: 30.0
+qp_cost_end_l: 5.0
+qp_cost_end_dl: 5.0
+qp_cost_end_ddl: 5.0
 
 qp_interp_ds: 0.1 # qp插值间隔
 
