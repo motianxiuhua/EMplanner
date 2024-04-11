@@ -7,10 +7,11 @@ std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>>
      EMPlanner::Plan(const TrajectoryPoint &planning_init_point,
                      const ReferenceLine &reference_line,
                      const LocalizationInfo &localization_info,
+                     const std::vector<VirtualObs> &pre_virtual_obstacles,
                      const std::vector<ObstacleInfo> &static_obstacles,
                      const std::vector<ObstacleInfo> &dynamic_obstacles,
                      Trajectory *trajectory,
-                     std::vector<ReferencePoint> &xy_virtual_obstacles) {
+                     std::vector<VirtualObs> &virtual_obstacles) {
 
   sl_graph_ = std::make_unique<PathTimeGraph>(reference_line, static_obstacles, config_);
 
@@ -27,10 +28,10 @@ std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>>
 
   ReferenceLine plannig_path = sl_graph_->planning_path();
 
-  st_graph_ = std::make_unique<SpeedTimeGraph>(plannig_path, config_);
+  st_graph_ = std::make_unique<SpeedTimeGraph>(plannig_path, dynamic_obstacles, pre_virtual_obstacles, config_);
   st_graph_->SetStartState(planning_init_point);
-  st_graph_->SetDynamicObstaclesSL(dynamic_obstacles);
-  st_graph_->GenerateSTGraph();
+  st_graph_->SetDynamicObstaclesSL();
+  st_graph_->GenerateSTGraph(planning_init_point);
   st_graph_->CreateSmaplePoint();
   st_graph_->SpeedDynamicPlanning();
   st_graph_->GenerateCovexSpace();
@@ -40,7 +41,7 @@ std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>>
   // //路径和速度合并
   st_graph_->PathAndSpeedMerge(planning_init_point.t);
   *trajectory = st_graph_->trajectory();
-  // xy_virtual_obstacles = st_graph_->xy_virtual_obstacles();
+  virtual_obstacles = st_graph_->virtual_obstacles();
 
   std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>> planner;
   planner.first = std::move(sl_graph_);

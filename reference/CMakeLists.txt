@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(planning)
+project(reference)
 SET(CMAKE_BUILD_TYPE "Debug")
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -7,18 +7,14 @@ SET(CMAKE_BUILD_TYPE "Debug")
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  visualization_msgs
-  local_waypoint_msgs
-)
+find_package(catkin REQUIRED)
+
+find_package(Eigen3 REQUIRED)
+find_package(OsqpEigen REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(Eigen3 REQUIRED)
-find_package(OsqpEigen REQUIRED)
+
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -73,7 +69,7 @@ find_package(OsqpEigen REQUIRED)
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   std_msgs#   visualization_msgs#   waypoint_msgs
+#   std_msgs  # Or other packages containing msgs
 # )
 
 ################################################
@@ -107,8 +103,8 @@ find_package(OsqpEigen REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES planning
-   CATKIN_DEPENDS roscpp rospy std_msgs visualization_msgs # waypoint_msgs
+#  LIBRARIES reference
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
 
@@ -119,19 +115,19 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
-  ../common
-  ../perception
-  ../reference/include
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIR}
-  ${OsqpEigen_INCLUDE_DIR}
+    include
+    ../common
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${OsqpEigen_INCLUDE_DIR}
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/planning.cpp
-# )
+add_library(${PROJECT_NAME}
+    src/reference_line.cc
+    src/reference_line_smoother.cc
+    src/reference_line_provider.cc
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -141,14 +137,6 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}
-    src/planning_main.cpp
-    src/planning_node.cpp
-    src/emplanner/EMPlanner.cc
-    src/emplanner/path_time_graph.cc
-    src/emplanner/speed_time_graph.cc
-    src/emplanner/trajectory.cc
-   )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -158,15 +146,13 @@ add_executable(${PROJECT_NAME}
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   OsqpEigen::OsqpEigen
-  perception
-  reference
 )
 
 #############
@@ -216,7 +202,7 @@ target_link_libraries(${PROJECT_NAME}
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_planning.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_reference.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

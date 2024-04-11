@@ -2,11 +2,14 @@
 
 /// @brief
 /// @param emplaner_conf
-SpeedTimeGraph::SpeedTimeGraph(ReferenceLine planning_path,
-                               std::unordered_map<std::string, double> emplaner_conf) //传入规划好的路径
+SpeedTimeGraph::SpeedTimeGraph(const ReferenceLine &planning_path, const std::vector<ObstacleInfo> &dynamic_obstacles,
+                               const std::vector<VirtualObs> &pre_virtual_obstacles,
+                               const std::unordered_map<std::string, double> &emplaner_conf) //传入规划好的路径
 {
   planning_path_ = planning_path;
+  dynamic_obstacles_ = dynamic_obstacles;
   emplaner_conf_ = emplaner_conf;
+  pre_virtual_obstacles_ = pre_virtual_obstacles;
   InitSAxis(planning_path_);
 }
 // 1.基于规划的轨迹，初始化坐标轴
@@ -43,44 +46,70 @@ void SpeedTimeGraph::SetStartState(const TrajectoryPoint &plan_start_point) {
 }
 
 // 2.计算障碍物的ST位置
-void SpeedTimeGraph::SetDynamicObstaclesSL(
-    const std::vector<ObstacleInfo> dynamic_obstacles) {
-  std::vector<MapPoint> obstacles_xy(dynamic_obstacles.size());
+void SpeedTimeGraph::SetDynamicObstaclesSL() {
+  std::vector<MapPoint> obstacles_xy(dynamic_obstacles_.size());
 
-  for (int i = 0; i < dynamic_obstacles.size(); i++) {
-    obstacles_xy[i].x = dynamic_obstacles[i].center_point.x;
-    obstacles_xy[i].y = dynamic_obstacles[i].center_point.y;
+  for (int i = 0; i < dynamic_obstacles_.size(); i++) {
+    obstacles_xy[i].x = dynamic_obstacles_[i].center_point.x;
+    obstacles_xy[i].y = dynamic_obstacles_[i].center_point.y;
   }
   std::vector<ReferencePoint> match_points;
   std::vector<ReferencePoint> project_points;
-  ReferenceLineProvider::FindMatchAndProjectPoint(
-      planning_path_, obstacles_xy, 0, 30, match_points, project_points);
+  
   //此部分比较妥协，暂时使用这种赋值循环，解决障碍物信息和参数不一致得到的问题
-  std::vector<TrajectoryPoint> traj_points(dynamic_obstacles.size());
-  for (int i = 0; i < dynamic_obstacles.size(); i++) {
-    traj_points[i].x = dynamic_obstacles[i].center_point.x;
-    traj_points[i].y = dynamic_obstacles[i].center_point.y;
-    traj_points[i].vx = dynamic_obstacles[i].center_point.vx;
-    traj_points[i].vy = dynamic_obstacles[i].center_point.vy;
-    traj_points[i].ax = dynamic_obstacles[i].center_point.ax;
-    traj_points[i].ay = dynamic_obstacles[i].center_point.ay;
+  std::vector<TrajectoryPoint> traj_points(dynamic_obstacles_.size());
+  for (int i = 0; i < dynamic_obstacles_.size(); i++) {
+    traj_points[i].x = dynamic_obstacles_[i].center_point.x;
+    traj_points[i].y = dynamic_obstacles_[i].center_point.y;
+    traj_points[i].vx = dynamic_obstacles_[i].center_point.vx;
+    traj_points[i].vy = dynamic_obstacles_[i].center_point.vy;
+    traj_points[i].ax = dynamic_obstacles_[i].center_point.ax;
+    traj_points[i].ay = dynamic_obstacles_[i].center_point.ay;
   }
-  std::vector<SLPoint> sl_dynamic_obstacles;
-  PathTimeGraph::Cartesian2Frenet(planning_path_, sl_planning_path_,
-                                  traj_points, match_points, project_points,
-                                  sl_dynamic_obstacles);
-  sl_dynamic_obstacles_ = sl_dynamic_obstacles;
+  
+  for (int i = 0; i < dynamic_obstacles_.size(); i++) {
+    bool vir_flag = false;
+    std::vector<SLPoint> sl_dynamic_obstacles; 
+    std::vector<TrajectoryPoint> traj_point;
+    std::vector<MapPoint> obs_xy;
+    traj_point.push_back(traj_points[i]);
+    obs_xy.push_back(obstacles_xy[i]);
+    for(auto vir_obs : pre_virtual_obstacles_)
+    {
+      if (vir_obs.obs.ID == dynamic_obstacles_[i].ID){
+        ReferenceLineProvider::FindMatchAndProjectPoint(
+        vir_obs.path, obs_xy, 0, 30, match_points, project_points);
+        PathTimeGraph::Cartesian2Frenet(vir_obs.path, vir_obs.sl_path,
+                              traj_point, match_points, project_points,
+                              sl_dynamic_obstacles);
+        vir_flag=true;
+        break;
+      }
+    }
+    if(!vir_flag) 
+    {
+        ReferenceLineProvider::FindMatchAndProjectPoint(
+        planning_path_, obs_xy, 0, 30, match_points, project_points);
+        PathTimeGraph::Cartesian2Frenet(planning_path_, sl_planning_path_,
+                                traj_point, match_points, project_points,
+                                sl_dynamic_obstacles);
+    }
+    sl_dynamic_obstacles_.push_back(sl_dynamic_obstacles.front());
+  }
 }
 
-void SpeedTimeGraph::GenerateSTGraph() {
+void SpeedTimeGraph::GenerateSTGraph(TrajectoryPoint host_vehicle) {
+  if (st_plan_start_.ds_dt < 2)
+    return;
   //该函数生成st图，使用斜直线模型
-  for (const auto &obs : sl_dynamic_obstacles_) {
+  for (int i = 0; i < sl_dynamic_obstacles_.size(); ++i) {
     // 1.横向/侧向移动缓慢的障碍物,可能是跟车场景和对向行驶场景
-    if (abs(obs.dl_dt) < 0.3) {
+    if (abs(sl_dynamic_obstacles_[i].dl_dt) < 0.3) {
 
-      if (abs(obs.l) > 2 || obs.ds_dt >= st_plan_start_.ds_dt)
-        continue; //横向距离太远，速度规划直接忽略;或者如果障碍物速度大于本次速度则忽略
-      else {
+      if (abs(sl_dynamic_obstacles_[i].l) > 2 || sl_dynamic_obstacles_[i].ds_dt >= st_plan_start_.ds_dt)
+        continue; //横向距离太远，速度规划直接忽略;或者如果障碍物速度大于自车速度则忽略
+      else { 
+        //侧向移动缓慢，并且速度比自车速度小
         /*
         % TODO需要做虚拟障碍物
         % 这里由于算力原因没做逻辑
@@ -97,30 +126,94 @@ void SpeedTimeGraph::GenerateSTGraph() {
          2.自然坐标系转换为世界坐标
         */
        //TODO carla是有障碍物跟踪的，根据ID来判断当前障碍物和上一次障碍物是否为同一个
-        SLPoint virtual_obstacle;
-        double t_collision = (st_plan_start_.s - obs.s) /
-                             (st_plan_start_.ds_dt - obs.ds_dt); //碰撞发生的时间
-        double s_collision =
-            st_plan_start_.s + t_collision * st_plan_start_.ds_dt; //碰撞发生的位置
-        double l_collision = obs.l;
-        virtual_obstacle.s = s_collision;
-        virtual_obstacle.l = obs.l; // TODO这里没有做纵向推演，但实际上进入该if语句的纵向速度就是很小
-        sl_virtual_obstacles_.push_back(virtual_obstacle);
-        PathTimeGraph::Frenet2Cartesian(planning_path_, sl_planning_path_,
-                                        sl_virtual_obstacles_,
-                                        xy_virtual_obstacles_);
+       
+       // 如果没有标记，则需要判断是否需要标记虚拟障碍物
+       // 如果自车的速度比前车的速度大很多，则需要超车
+       if(sl_dynamic_obstacles_[i].ds_dt < st_plan_start_.ds_dt * 0.8){
+          bool pre_flag = false;
+          VirtualObs pre_virtual_obstacle;
+          for(auto vir_obs : pre_virtual_obstacles_)
+          {
+            if (vir_obs.obs.ID == dynamic_obstacles_[i].ID){
+              pre_flag = true;//虚拟障碍物标记过
+              pre_virtual_obstacle = vir_obs;
+            }
+          }
+          VirtualObs virtual_obstacle;
+          std::vector<SLPoint> sl_virtual_obstacles;
+          std::vector<ReferencePoint> xy_virtual_obstacles;
+          virtual_obstacle.obs = dynamic_obstacles_[i];
+          if (pre_virtual_obstacles_.empty() || !pre_flag){                    
+              double t_collision = (sl_dynamic_obstacles_[i].s) /
+                                  (st_plan_start_.ds_dt - sl_dynamic_obstacles_[i].ds_dt); //碰撞发生的时间       
+              double s_collision =
+                  sl_dynamic_obstacles_[i].s + (t_collision ) * sl_dynamic_obstacles_[i].ds_dt; //碰撞发生的位置
+              if (s_collision > sl_planning_path_.back().s){
+                continue;
+              } 
+              double l_collision = sl_dynamic_obstacles_[i].l;
+              virtual_obstacle.sl_obs.s = s_collision;
+              virtual_obstacle.sl_obs.l = sl_dynamic_obstacles_[i].l; // 这里没有做纵向推演，但实际上进入该if语句的纵向速度就是很小，所以不做也行
+              sl_virtual_obstacles.push_back(virtual_obstacle.sl_obs);
+              
+              virtual_obstacle.path = planning_path_;
+              virtual_obstacle.sl_path = sl_planning_path_;
+          } 
+          else{
+            std::vector<MapPoint> map_points;
+            map_points.resize(1);
+            map_points[0].x = host_vehicle.x;
+            map_points[0].y = host_vehicle.y;
+            //定义变量，用于存储计算结果
+            std::vector<ReferencePoint> host_match_points, host_project_points;
+            ReferenceLineProvider::FindMatchAndProjectPoint(pre_virtual_obstacle.path, map_points,
+                                                            0, 3, host_match_points,
+                                                            host_project_points);
+            std::vector<TrajectoryPoint> host_point_vec;
+            host_point_vec.push_back(host_vehicle);
+            std::vector<SLPoint> host_sl;
+            PathTimeGraph::Cartesian2Frenet(pre_virtual_obstacle.path, pre_virtual_obstacle.sl_path, host_point_vec,
+                            host_match_points, host_project_points, host_sl);
+            double t_collision = (sl_dynamic_obstacles_[i].s - host_sl[0].s) /
+                                  (host_sl[0].ds_dt - sl_dynamic_obstacles_[i].ds_dt); //碰撞发生的时间
+            double s_collision =
+                sl_dynamic_obstacles_[i].s +  (t_collision )  * sl_dynamic_obstacles_[i].ds_dt; //碰撞发生的位置
+            if (sl_dynamic_obstacles_[i].s + 5 <= host_sl[0].s  || s_collision > pre_virtual_obstacle.sl_path.back().s){
+              continue;
+            }
+            double l_collision = sl_dynamic_obstacles_[i].l;
+            virtual_obstacle.sl_obs.s = s_collision;
+            virtual_obstacle.sl_obs.l = sl_dynamic_obstacles_[i].l; // 这里没有做纵向推演，但实际上进入该if语句的纵向速度就是很小，所以不做也行
+            sl_virtual_obstacles.push_back(virtual_obstacle.sl_obs);
+
+            virtual_obstacle.path = pre_virtual_obstacle.path;
+            virtual_obstacle.sl_path = pre_virtual_obstacle.sl_path;
+          }
+          PathTimeGraph::Frenet2Cartesian(virtual_obstacle.path, virtual_obstacle.sl_path,
+                                              sl_virtual_obstacles,
+                                              xy_virtual_obstacles);
+          virtual_obstacle.obs.center_point.x = xy_virtual_obstacles[0].x;
+          virtual_obstacle.obs.center_point.y = xy_virtual_obstacles[0].y;
+          virtual_obstacle.obs.center_point.heading= xy_virtual_obstacles[0].heading;
+          virtual_obstacle.obs.center_point.kappa = xy_virtual_obstacles[0].kappa;
+          virtual_obstacles_.push_back(virtual_obstacle);
+       }
+       //TODO否则，跟车
+
+        // 如果之前标记了虚拟障碍物，则需要在标记的虚拟障碍物对应的参考轨迹上投影来计算新的虚拟障碍物位置
         continue;
       }
     }
+    //有比较大的横向速度
     /*TODO这里动态障碍没有考虑大小和形状，第一障碍物在ST图的形状不一定是长方形
     如果纵向也有移动速度，那么是个平行四边形，因为相同的纵向距离s不在同一个时间t
     */
     //计算切入切出时间
     // t_zero 为动态障碍物的l到0，所需要的时间
-    double t_zero = -obs.l / obs.dl_dt; //时间等于路程除以速度
+    double t_zero = -sl_dynamic_obstacles_[i].l / sl_dynamic_obstacles_[i].dl_dt; //时间等于路程除以速度
     //计算进出±2的时间
-    double t_boundary1 = 2.0 / obs.dl_dt + t_zero;
-    double t_boundary2 = -2.0 / obs.dl_dt + t_zero;
+    double t_boundary1 = 2.0 / sl_dynamic_obstacles_[i].dl_dt + t_zero;
+    double t_boundary2 = -2.0 / sl_dynamic_obstacles_[i].dl_dt + t_zero;
     double t_max = 0;
     double t_min = 0;
     if (t_boundary1 > t_boundary2) {
@@ -144,15 +237,15 @@ void SpeedTimeGraph::GenerateSTGraph() {
     // % 在感知看到的时候，障碍物已经在+-2的内部了
     STLine st_obstacle;
     if (t_min < 0 && t_max > 0) {
-      st_obstacle.in_point.s = obs.s;
+      st_obstacle.in_point.s = sl_dynamic_obstacles_[i].s;
       st_obstacle.in_point.t = 0;
-      st_obstacle.out_point.s = obs.s + obs.ds_dt * t_max;
+      st_obstacle.out_point.s = sl_dynamic_obstacles_[i].s + sl_dynamic_obstacles_[i].ds_dt * t_max;
       st_obstacle.out_point.t = t_max;
     } else //正常障碍物
     {
-      st_obstacle.in_point.s = obs.s + obs.ds_dt * t_min;
+      st_obstacle.in_point.s = sl_dynamic_obstacles_[i].s + sl_dynamic_obstacles_[i].ds_dt * t_min;
       st_obstacle.in_point.t = t_min;
-      st_obstacle.out_point.s = obs.s + obs.ds_dt * t_max;
+      st_obstacle.out_point.s = sl_dynamic_obstacles_[i].s + sl_dynamic_obstacles_[i].ds_dt * t_max;
       st_obstacle.out_point.t = t_max;
     }
     st_obstacles_.push_back(st_obstacle);
@@ -331,7 +424,7 @@ double SpeedTimeGraph::CalcCollisionCost(double w_cost_obs, double min_dis) {
   double collision_cost = 0;
   if (abs(min_dis) < 0.5)
     collision_cost = 10e6;
-  else if (abs(min_dis) >= 0.5 && abs(min_dis) < 2)
+  else if (abs(min_dis) >= 0.5 && abs(min_dis) < 5)
     //  % min_dis = 0.5 collision_cost = w_cost_obs ^ 1;
     // % min_dis = 1.5 collision_cost = w_cost_obs ^ 0 = 1
     collision_cost = w_cost_obs * pow(1000, 2 - min_dis);
@@ -399,7 +492,7 @@ void SpeedTimeGraph::GenerateCovexSpace() {
     int t_ub_index = FindDpMatchIndex(obs.out_point.t);
 
     // % 这里稍微做个缓冲，把 t_lb_index 稍微缩小一些，t_ub_index稍微放大一些
-    t_lb_index = std::max(t_lb_index - 2, 3);
+    t_lb_index = std::max(t_lb_index - 2, 1);
     //% 最低为3 因为碰瓷没法处理
     t_ub_index = std::min(t_ub_index + 2, dp_end_index);
 
@@ -427,6 +520,10 @@ void SpeedTimeGraph::GenerateCovexSpace() {
 int SpeedTimeGraph::FindDpMatchIndex(double t) {
   // t_in,t_out对应的动态规划点
   int index = 0;
+  if (t <= dp_speed_points_.front().t)
+    return 0;
+  if (t >= dp_speed_points_.back().t)
+    return dp_speed_points_.size() - 1;
   for (int j = 0; j < dp_speed_points_.size() - 1; j++) {
     if (t >= dp_speed_points_[j].t &&
         t < dp_speed_points_[j + 1].t) { //% 否则遍历dp_speed_t
@@ -706,8 +803,8 @@ void SpeedTimeGraph::PathAndSpeedMerge(const double &plan_time) {
 
 const Trajectory SpeedTimeGraph::trajectory() const { return trajectory_; }
 
-const std::vector<ReferencePoint> SpeedTimeGraph::xy_virtual_obstacles() const {
-  return xy_virtual_obstacles_;
+const std::vector<VirtualObs> SpeedTimeGraph::virtual_obstacles() const {
+  return virtual_obstacles_;
 } //虚拟障碍物的xy坐标
 
 std::vector<STLine> SpeedTimeGraph::st_obstacles() { return st_obstacles_; }

@@ -33,10 +33,10 @@
 #include <local_waypoint_msgs/LocalWaypointArray.h> 
 
 #include "pnc_point.h"
-#include "perception/perception_obstacle.h"
+#include "perception_obstacle.h"
 #include "emplanner/trajectory.h"
 #include "emplanner/EMPlanner.h"
-#include "reference_line/reference_line.h"
+#include "reference_line.h"
 
 namespace planning
 {

@@ -1,4 +1,4 @@
-#include "reference_line/reference_line_provider.h"
+#include "reference_line_provider.h"
 
 void ReferenceLineProvider::Provide(
     const std::vector<MapPoint> &routing_path_points,
@@ -239,7 +239,6 @@ void ReferenceLineProvider::RoutingPathToFrenetPath(
     reference_points.push_back(rp);
   }
   int ref_size = reference_points.size();
-  ROS_INFO("%d \r\n", ref_size);
   frenet_path.set_reference_points(reference_points);
 }
 

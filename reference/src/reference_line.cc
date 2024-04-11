@@ -1,4 +1,4 @@
-#include "reference_line/reference_line.h"
+#include "reference_line.h"
 
 void ReferenceLine::set_reference_points(
     std::vector<ReferencePoint> reference_points) {

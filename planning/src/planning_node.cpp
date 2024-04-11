@@ -138,13 +138,13 @@ namespace planning
                 pre_trajectory = trajectory;
                 em_planner->CalPlaningStartPoint(pre_trajectory, localization_info,
                                                 &plan_start, &stitch_trajectory);
-                std::vector<ReferencePoint> xy_virtual_obstacles;
+                std::vector<VirtualObs> virtual_obstacles;
                 //接口和参数都对不上
                 std::pair<std::unique_ptr<PathTimeGraph>,std::unique_ptr<SpeedTimeGraph>> planner = 
-                em_planner->Plan(plan_start, reference_line, localization_info,
+                em_planner->Plan(plan_start, reference_line, localization_info,perception->virtual_obstacles(),
                                 perception->static_obstacles(), perception->dynamic_obstacles(),
-                                &cur_trajectory, xy_virtual_obstacles);
-                // perception->UpdateVirtualObstacle(xy_virtual_obstacles);
+                                &cur_trajectory, virtual_obstacles);
+                perception->UpdateVirtualObstacle(virtual_obstacles);
                 em_planner->StitchTrajectory(cur_trajectory, stitch_trajectory, trajectory);
                 history_trajectory.push_back(trajectory);
 
@@ -331,7 +331,7 @@ namespace planning
 
             detected_objects.push_back(obs);
         }
-        perception->set_obstacles(detected_objects);
+        perception->set_obstacles(localization_info, detected_objects);
     }
 
 

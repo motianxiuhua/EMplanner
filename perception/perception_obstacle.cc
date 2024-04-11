@@ -1,4 +1,4 @@
-#include "perception/perception_obstacle.h"
+#include "perception_obstacle.h"
 
 const std::vector<ObstacleInfo> PerceptionObstacle::static_obstacles() const {
   return static_obstacles_;
@@ -12,18 +12,54 @@ const std::vector<ObstacleInfo> PerceptionObstacle::get_obstacles() const {
   return detected_obstacles_;
 }
 
-void PerceptionObstacle::set_obstacles(const std::vector<ObstacleInfo> &detected_obstacles){
+const std::vector<VirtualObs> PerceptionObstacle::virtual_obstacles() const {
+  return virtual_obstacles_;
+}
+
+void PerceptionObstacle::FilterAndOutObstacleInfo(const LocalizationInfo &localization_info, std::vector<ObstacleInfo> detected_obstacles){
+  std::vector<ObstacleInfo> obstacles = detected_obstacles;
+  detected_obstacles.clear();
+  // 切向量
+  auto tor = std::make_pair(cos(localization_info.heading), sin(localization_info.heading));
+  //法向量
+  auto nor =
+      std::make_pair(-sin(localization_info.heading), cos(localization_info.heading));
+  for(int i = 0; i<obstacles.size(); i++)
+  {
+    //% 误差向量
+    auto d_err = std::make_pair(localization_info.x - obstacles[i].center_point.x,
+                                localization_info.y - obstacles[i].center_point.y);
+    //%纵向误差
+    double lon_err = abs(d_err.first * tor.first + d_err.second * tor.second);
+    //%横向误差
+    double lat_err = abs(d_err.first * nor.first + d_err.second * nor.second);
+    if(lon_err<50 && lon_err>-10 &&lat_err>-10 && lat_err<10){
+      detected_obstacles.push_back(obstacles[i]);
+    }
+  }
+}
+
+void PerceptionObstacle::set_obstacles(const LocalizationInfo &localization_info, const std::vector<ObstacleInfo> &detected_obstacles){
   detected_obstacles_ = detected_obstacles;
   dynamic_obstacles_.clear();
   static_obstacles_.clear();
+  FilterAndOutObstacleInfo(localization_info, detected_obstacles_);
   for(ObstacleInfo &obs : detected_obstacles_) {
     CalCollisionBox(obs);
-    if(obs.center_point.v > 0.2){
+    if(obs.center_point.v > 0.01){
       dynamic_obstacles_.push_back(obs);
     }
     else{
       static_obstacles_.push_back(obs);
     }
+  }
+  if (!virtual_obstacles_.empty())
+  {
+    for(auto virtual_obs:virtual_obstacles_) 
+    {
+      static_obstacles_.push_back(virtual_obs.obs);
+    }
+    
   }
 }
 
@@ -73,3 +109,11 @@ void PerceptionObstacle::CalCollisionBox(ObstacleInfo &obstacle){
   }
   obstacle.collision_box = collision_box;
 }
+
+ void PerceptionObstacle::UpdateVirtualObstacle(std::vector<VirtualObs> virtual_obstacles){
+  virtual_obstacles_ = virtual_obstacles;
+  for(int i = 0; i < virtual_obstacles_.size(); i++)
+  {
+    CalCollisionBox(virtual_obstacles_[i].obs);
+  }
+ }

@@ -36,14 +36,14 @@ speed_dp_sample_row: 60 # 路径规划的总长s要大于速度规划的，否�
 speed_dp_sample_col: 16
 max_lateral_accel: 10
 
-ref_speed: 10
+ref_speed: 8
 speed_dp_cost_ref_speed: 100
 speed_dp_cost_accel: 10
 speed_dp_cost_obs: 1
 
 #QP Speed cost
 speed_qp_cost_v_ref: 8
-speed_qp_cost_dds_dt: 5
-speed_qp_cost_jerk: 1
+speed_qp_cost_dds_dt: 15
+speed_qp_cost_jerk: 100
 
 speed_qp_interp_dt: 0.01

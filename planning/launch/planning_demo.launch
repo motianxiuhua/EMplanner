@@ -1,10 +1,10 @@
 <launch>
   <arg name="role_name" default="ego_vehicle" />
-  <!-- <arg name="spawn_point" default='156,-193.2,3,0,0,180'/> -->
 
-  <arg name="spawn_point" default='229.5,-86,2.5,0,0,-90'/>
-  <!-- <arg name="spawn_point" default='230.5,-32.5,2.5,0,0,-90'/> -->
-  <arg name="town" default='Town03'/>
+  <!-- <arg name="spawn_point" default='229.5,-86,2.5,0,0,-90'/> -->
+  <!-- <arg name="town" default='Town03'/> -->
+  <arg name="spawn_point" default='284.4,-16.4,2.5,0,0,-180'/>
+  <arg name="town" default='Town04'/>
   <arg name='synchronous_mode_wait_for_vehicle_control_command' default='True'/>
   <arg name='fixed_delta_seconds' default='0.02'/>
 

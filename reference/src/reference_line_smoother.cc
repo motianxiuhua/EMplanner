@@ -1,4 +1,4 @@
-#include "reference_line/reference_line_smoother.h"
+#include "reference_line_smoother.h"
 #include "OsqpEigen/OsqpEigen.h"
 #include "eigen3/Eigen/Eigen"
 

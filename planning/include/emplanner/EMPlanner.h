@@ -4,8 +4,8 @@
 */
 #pragma once
 
-#include "perception/perception_obstacle.h"
-#include "reference_line/reference_line.h"
+#include "perception_obstacle.h"
+#include "reference_line.h"
 #include "trajectory.h"
 #include <memory>
 
@@ -21,10 +21,11 @@ public:
        Plan(const TrajectoryPoint &planning_init_point, //规划起点
             const ReferenceLine &reference_line,        //参考线
             const LocalizationInfo &localization,       //定位信息
+            const std::vector<VirtualObs> &pre_virtual_obstacles,
             const std::vector<ObstacleInfo> &static_obstacles,  //障碍物信息
             const std::vector<ObstacleInfo> &dynamic_obstacles,
             Trajectory *trajectory,                          //输出轨迹
-            std::vector<ReferencePoint> &xy_virtual_obstacles); //虚拟障碍物
+            std::vector<VirtualObs> &virtual_obstacles); //虚拟障碍物
 
   // 1.计算规划起点
   void CalPlaningStartPoint(const Trajectory &pre_traj,

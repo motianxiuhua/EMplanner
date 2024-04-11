@@ -2,7 +2,7 @@
 此类使用Apollo的discrete_points_smoother的FEM_POS_DEVIATION_SMOOTHING
 */
 #pragma once
-#include "reference_line/reference_line.h"
+#include "reference_line.h"
 
 class ReferenceLineSmoother {
 public:

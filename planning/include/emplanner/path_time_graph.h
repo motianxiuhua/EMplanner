@@ -8,8 +8,8 @@
 #include <memory>
 #include <unordered_map>
 #include "pnc_point.h"
-#include "perception/perception_obstacle.h"
-#include "reference_line/reference_line_provider.h"
+#include "perception_obstacle.h"
+#include "reference_line_provider.h"
 
 class PathTimeGraph {
 private:
