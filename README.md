@@ -81,7 +81,6 @@ roslaunch planning planning_demo.launch
 scenario_runner-0.9.11目录下，代码在[scenario_runner](https://github.com/czjaixuexi/scenario_runner)
 
 ```plain
-python scenario_runner.py --scenario Avoid_and_Follow_1 --waitForEgo   #用于Lattice Planner
-python scenario_runner.py --scenario Avoid_1 --waitForEgo			   #用于EM Planner
+python scenario_runner.py --scenario Avoid_and_Follow_1 --waitForEgo  
 ```
 
